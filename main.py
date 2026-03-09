@@ -1,35 +1,40 @@
 """
-system concept simulation
+ID Scanner Check-In System
+Python 3.5 friendly
+Debian / Raspberry Pi / Geany friendly
 
-procedure: Simulation on laptop > Program tested > Run from terminal > enable auto-start
-
-TODO: 
-- Have the program generate datasheet .csv file (Name, Card ID, Student ID, Phone Number, Timestamp, Total Time) and save it to a folder autonomously
-    - After the user swipes their card, output "Hello, [name extracted from card], please enter your student ID and phone number."
-- The program will have no check out. Only tracking who checked in for the day. Every 3am, a new .csv is created and restarts and creates a datechange
-- There will be multiple .csv files. Only create a new .csv file if the date changed acccording to the internet (most recent time EST timezone)
-- Include a disclaimer constanly running so the user knows what to expect before swiping ("By scanning your ID, you agree to the terms and conditions")
-- If user already checked in for the day, the program will ignore
-- Since the Card Scanner can read the student ID name, the program will not ask for the user's name. However, it will modify the data read from the scanner to only show specific data
-- Hide "exit"
-- Hide card data (line 51)
+Logic:
+- Swipe card
+- Extract Name + Card ID from swipe
+- Check if Card ID exists in database.csv
+- If found:
+    - Display student info
+    - Save check-in to today's CSV if not already checked in today
+- If not found:
+    - Ask for Student ID and Phone Number
+    - Save to database.csv
+    - Save check-in to today's CSV
 """
-
 
 import csv
 import os
 from datetime import datetime
-from getpass import getpass
 
-# settings
+# =========================
+# SETTINGS
+# =========================
 DATABASE_FILE = "database.csv"
 CHECKIN_FOLDER = "checkin_logs"
 DISCLAIMER = "By scanning your ID, you agree to the terms and conditions."
 
-os.makedirs(CHECKIN_FOLDER, exist_ok=True)
+# Create folder if it does not exist
+if not os.path.exists(CHECKIN_FOLDER):
+    os.makedirs(CHECKIN_FOLDER)
 
 
-# file setup
+# =========================
+# FILE SETUP
+# =========================
 def create_database_if_needed():
     if not os.path.exists(DATABASE_FILE):
         with open(DATABASE_FILE, mode="w", newline="", encoding="utf-8") as file:
@@ -39,7 +44,8 @@ def create_database_if_needed():
 
 def get_today_checkin_file():
     today = datetime.now().strftime("%Y-%m-%d")
-    return os.path.join(CHECKIN_FOLDER, "checkin_{}.csv".format(today))
+    filename = "checkin_{0}.csv".format(today)
+    return os.path.join(CHECKIN_FOLDER, filename)
 
 
 def create_checkin_file_if_needed(filename):
@@ -49,24 +55,62 @@ def create_checkin_file_if_needed(filename):
             writer.writerow(["Name", "Card ID", "Student ID", "Phone Number", "Timestamp"])
 
 
-# swipe parsing
+# =========================
+# SWIPE PARSING
+# =========================
 def parse_swipe(swipe):
-  
+    """
+    Example swipe:
+    %B6029220033403492^SOUTER/JASON L            ^091212000000          000?;6029220033403492=09121200000000000000?
+    """
+
+    swipe = swipe.strip()
+
+    # Must contain Track 1 separators
+    if "^" not in swipe:
+        raise ValueError("Swipe data missing '^' separators")
+
     parts = swipe.split("^")
 
-    card_id = parts[0].replace("%B", "").strip()
+    if len(parts) < 2:
+        raise ValueError("Swipe data incomplete")
+
+    # First part contains %B + card id
+    card_part = parts[0].strip()
+
+    if not card_part.startswith("%B"):
+        raise ValueError("Swipe data missing Track 1 start")
+
+    card_id = card_part.replace("%B", "").strip()
+
+    # Name section
     name_raw = parts[1].strip()
 
-    last, first = name_raw.split("/")
-    formatted_name = first.strip() + " " + last.strip()
+    if "/" not in name_raw:
+        raise ValueError("Name format invalid")
+
+    name_parts = name_raw.split("/")
+
+    if len(name_parts) < 2:
+        raise ValueError("Name format incomplete")
+
+    last = name_parts[0].strip()
+    first = name_parts[1].strip()
+
+    # Clean extra spaces inside first name
+    first = " ".join(first.split())
+    last = " ".join(last.split())
+
+    formatted_name = "{0} {1}".format(first, last)
 
     return formatted_name, card_id
 
 
-# validating student ID and phone number is 10 digits
+# =========================
+# VALIDATION
+# =========================
 def valid_student_id(student_id):
     return student_id.isdigit() and len(student_id) == 10
-    
 
 
 def valid_phone_number(phone):
@@ -78,13 +122,19 @@ def normalize_phone_number(phone):
     return "".join(ch for ch in phone if ch.isdigit())
 
 
-# database function
+# =========================
+# DATABASE FUNCTIONS
+# =========================
 def find_student_in_database(card_id):
+    if not os.path.exists(DATABASE_FILE):
+        return None
+
     with open(DATABASE_FILE, mode="r", newline="", encoding="utf-8") as file:
         reader = csv.DictReader(file)
         for row in reader:
             if row["Card ID"] == card_id:
                 return row
+
     return None
 
 
@@ -94,7 +144,9 @@ def add_student_to_database(name, card_id, student_id, phone_number):
         writer.writerow([name, card_id, student_id, phone_number])
 
 
-# check-in function
+# =========================
+# CHECK-IN FUNCTIONS
+# =========================
 def already_checked_in_today(filename, card_id):
     if not os.path.exists(filename):
         return False
@@ -104,6 +156,7 @@ def already_checked_in_today(filename, card_id):
         for row in reader:
             if row["Card ID"] == card_id:
                 return True
+
     return False
 
 
@@ -115,69 +168,87 @@ def save_checkin(filename, name, card_id, student_id, phone_number):
         writer.writerow([name, card_id, student_id, phone_number, timestamp])
 
 
-# main
-create_database_if_needed()
+# =========================
+# MAIN PROGRAM
+# =========================
+def main():
+    create_database_if_needed()
 
-while True: #sentinel loop
-    print("\n" + DISCLAIMER)
-    print("Please swipe your card.\n")
+    while True:
+        print("")
+        print(DISCLAIMER)
+        print("Please swipe your card.")
+        print("")
 
-    swipe = getpass("Swipe Card: ").strip()
+        # Use input() for Debian/Geany reliability
+        swipe = input("Swipe Card: ").strip()
 
-    if swipe.lower() == "exit":
-        print("Program ended.")
-        break
+        # Hidden testing exit command
+        if swipe.lower() == "exit":
+            print("Program ended.")
+            break
 
-    try:
-        name, card_id = parse_swipe(swipe)
-    except Exception:
-        print("Invalid swipe format. Please try again.")
-        continue
+        if swipe == "":
+            print("No swipe detected. Please try again.")
+            continue
 
-    checkin_file = get_today_checkin_file()
-    create_checkin_file_if_needed(checkin_file)
+        try:
+            name, card_id = parse_swipe(swipe)
+        except Exception as error:
+            print("Invalid swipe format. Please try again.")
+            print("Debug info:", error)
+            continue
 
-    if already_checked_in_today(checkin_file, card_id):
-        print("{} has already checked in today. Entry ignored.".format(name))
-        continue
+        checkin_file = get_today_checkin_file()
+        create_checkin_file_if_needed(checkin_file)
 
-    student = find_student_in_database(card_id)
+        if already_checked_in_today(checkin_file, card_id):
+            print("{0} has already checked in today. Entry ignored.".format(name))
+            continue
 
-    if student:
-        print("Name: {}".format(student["Name"]))
-        print("Card ID: {}".format(student["Card ID"]))
-        print("Student ID: {}".format(student["Student ID"]))
-        print("Phone Number: {}".format(student["Phone Number"]))
+        student = find_student_in_database(card_id)
 
-        save_checkin(
-            checkin_file,
-            student["Name"],
-            student["Card ID"],
-            student["Student ID"],
-            student["Phone Number"]
-        )
+        if student:
+            print("")
+            print("Student found in database:")
+            print("Name: {0}".format(student["Name"]))
+            print("Card ID: {0}".format(student["Card ID"]))
+            print("Student ID: {0}".format(student["Student ID"]))
+            print("Phone Number: {0}".format(student["Phone Number"]))
 
-        print("Check-in saved successfully.")
+            save_checkin(
+                checkin_file,
+                student["Name"],
+                student["Card ID"],
+                student["Student ID"],
+                student["Phone Number"]
+            )
 
-    else:
-        print("\nHello, {}. You are not in the database yet.".format(name))
-        print("Please enter your Student ID and Phone Number.")
+            print("Check-in saved successfully.")
 
-        student_id = input("Student ID (10 digits): ").strip()
-        while not valid_student_id(student_id):
-            print("Invalid Student ID. It must be exactly 10 digits.")
+        else:
+            print("")
+            print("Hello, {0}. You are not in the database yet.".format(name))
+            print("Please enter your Student ID and Phone Number.")
+
             student_id = input("Student ID (10 digits): ").strip()
+            while not valid_student_id(student_id):
+                print("Invalid Student ID. It must be exactly 10 digits.")
+                student_id = input("Student ID (10 digits): ").strip()
 
-        phone_number = input("Phone Number (10 digits): ").strip()
-        while not valid_phone_number(phone_number):
-            print("Invalid phone number. It must contain exactly 10 digits.")
             phone_number = input("Phone Number (10 digits): ").strip()
+            while not valid_phone_number(phone_number):
+                print("Invalid phone number. It must contain exactly 10 digits.")
+                phone_number = input("Phone Number (10 digits): ").strip()
 
-        phone_number = normalize_phone_number(phone_number)
+            phone_number = normalize_phone_number(phone_number)
 
-        add_student_to_database(name, card_id, student_id, phone_number)
-        save_checkin(checkin_file, name, card_id, student_id, phone_number)
+            add_student_to_database(name, card_id, student_id, phone_number)
+            save_checkin(checkin_file, name, card_id, student_id, phone_number)
 
-        print("New student added to database.")
-        print("Check-in saved successfully.")
+            print("New student added to database.")
+            print("Check-in saved successfully.")
 
+
+if __name__ == "__main__":
+    main()
