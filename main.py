@@ -39,7 +39,7 @@ def create_database_if_needed():
 
 def get_today_checkin_file():
     today = datetime.now().strftime("%Y-%m-%d")
-    return os.path.join(CHECKIN_FOLDER, f"checkin_{today}.csv")
+    return os.path.join(CHECKIN_FOLDER, "checkin_{}.csv".format(today))
 
 
 def create_checkin_file_if_needed(filename):
@@ -138,17 +138,16 @@ while True: #sentinel loop
     create_checkin_file_if_needed(checkin_file)
 
     if already_checked_in_today(checkin_file, card_id):
-        print(f"{name} has already checked in today. Entry ignored.")
+        print("{} has already checked in today. Entry ignored.".format(name))
         continue
 
     student = find_student_in_database(card_id)
 
     if student:
-        print("\nStudent found in database:")
-        print(f"Name: {student['Name']}")
-        print(f"Card ID: {student['Card ID']}")
-        print(f"Student ID: {student['Student ID']}")
-        print(f"Phone Number: {student['Phone Number']}")
+        print("Name: {}".format(student["Name"]))
+        print("Card ID: {}".format(student["Card ID"]))
+        print("Student ID: {}".format(student["Student ID"]))
+        print("Phone Number: {}".format(student["Phone Number"]))
 
         save_checkin(
             checkin_file,
@@ -161,7 +160,7 @@ while True: #sentinel loop
         print("Check-in saved successfully.")
 
     else:
-        print(f"\nHello, {name}. You are not in the database yet.")
+        print("\nHello, {}. You are not in the database yet.".format(name))
         print("Please enter your Student ID and Phone Number.")
 
         student_id = input("Student ID (10 digits): ").strip()
@@ -181,3 +180,4 @@ while True: #sentinel loop
 
         print("New student added to database.")
         print("Check-in saved successfully.")
+
