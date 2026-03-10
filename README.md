@@ -77,19 +77,18 @@ The system operates as a simple input-processing pipeline:
 id-checkin-system/
 │
 ├── main.py
-├── data/
+├── checkin_logs/
 │   ├── 2026-03-10.csv
-│   ├── 2026-03-11.csv
-│
-├── README.md
-└── requirements.txt
+├── database.csv
+├── LICENSE
+└── README.md
 ```
 
 **main.py**  
 Primary script responsible for handling input, prompting users, and logging data.
 
-**data/**  
-Directory where daily CSV log files are stored.
+**checkin_logs/**  
+Directory where daily checkin CSV log files are stored.
 
 ---
 
@@ -114,26 +113,3 @@ python3 main.py
 ```
 
 Optional: Configure the script to run automatically on system startup using `cron` or a system service.
-
----
-
-## Use Cases
-
-- School laboratory check-in systems
-- Student attendance logging
-- Club or organization check-in
-- Workspace access records
-- Event attendance tracking
-
----
-
-## Future Improvements
-
-- Duplicate check-in detection
-- Graphical user interface (GUI)
-- Database integration (SQLite or PostgreSQL)
-- Admin dashboard for attendance monitoring
-- Checkout / time tracking functionality
-- Real-time attendance display
-- Debian / Raspberry Pi OS recommended
-- USB ID card scanner or compatible input device
