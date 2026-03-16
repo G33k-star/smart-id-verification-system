@@ -85,7 +85,7 @@ smart-id-verification-system/
 ├── main.py
 ├── checkin_logs/
 │   └── yyyy-mm-dd.csv
-├── captured_images/
+├── captured_images/ (pending)
 │   └── yyyy-mm-dd_14-32-11.jpg
 ├── database_folder/
 │   └── database.csv
