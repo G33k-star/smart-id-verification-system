@@ -2,16 +2,33 @@ import csv
 import os
 from datetime import datetime
 from getpass import getpass
+import sys
+import time
 
 # settings
-DATABASE_FILE = "database.csv"
+DATABASE_FOLDER = "database_folder"
+DATABASE_FILE = os.path.join(DATABASE_FOLDER, "database.csv")
 CHECKIN_FOLDER = "checkin_logs"
 DISCLAIMER = "By scanning your ID, you agree to the terms and conditions."
+EXIT_CODE = "adminexit"
 
-# create folder if it does not exist
+
+def check_exit(value):
+    if value.strip().lower() == EXIT_CODE:
+        print("Exit code entered. Program ending", end="", flush=True)
+        for _ in range(3):
+            time.sleep(1)
+            print(".", end="", flush=True)
+        sys.exit()
+
+
+# create check-in folder if it does not exist
 if not os.path.exists(CHECKIN_FOLDER):
     os.makedirs(CHECKIN_FOLDER)
 
+# create database folder if it does not exist
+if not os.path.exists(DATABASE_FOLDER):
+    os.makedirs(DATABASE_FOLDER)
 
 # creates database
 def create_database_if_needed():
@@ -19,6 +36,7 @@ def create_database_if_needed():
         with open(DATABASE_FILE, mode="w", newline="", encoding="utf-8") as file:
             writer = csv.writer(file)
             writer.writerow(["Name", "Card ID", "Student ID", "Phone Number"])
+
 
 # current time function
 def get_today_checkin_file():
@@ -145,12 +163,8 @@ def main():
         print("")
 
         # used getpass() instead of input()
-        swipe = getpass("Swipe Card: ").strip()
-
-        # hidden testing exit command 
-        if swipe.lower() == "exit":
-            print("Program ended.")
-            break
+        swipe = getpass("Swipe Card: ").strip() # used getpass instead of input() to hide info
+        check_exit(swipe)
 
         if swipe == "":
             print("No swipe detected. Please try again.")
@@ -195,15 +209,21 @@ def main():
             print("Hello, {0}. You are not in the database yet.".format(name))
             print("Please enter your Student ID and Phone Number.")
 
-            student_id = input("Student ID (10 digits): ").strip()
+            student_id = getpass("Student ID (10 digits): ").strip() # used getpass instead of input() to hide info
+            check_exit(student_id)
+            
             while not valid_student_id(student_id):
                 print("Invalid Student ID. It must be exactly 10 digits.")
-                student_id = input("Student ID (10 digits): ").strip()
+                student_id = getpass("Student ID (10 digits): ").strip() # used getpass instead of input() to hide info
+                check_exit(student_id)
 
-            phone_number = input("Phone Number (10 digits): ").strip()
+            phone_number = getpass("Phone Number (10 digits): ").strip() # used getpass instead of input() to hide info
+            check_exit(phone_number)
+            
             while not valid_phone_number(phone_number):
                 print("Invalid phone number. It must contain exactly 10 digits.")
-                phone_number = input("Phone Number (10 digits): ").strip()
+                phone_number = getpass("Phone Number (10 digits): ").strip() # used getpass instead of input() to hide info
+                check_exit(phone_number)
 
             phone_number = normalize_phone_number(phone_number)
 
