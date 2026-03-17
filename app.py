@@ -2,6 +2,8 @@ import os
 import sys
 import subprocess
 import tkinter as tk
+from cam import capture_image
+
 
 from config import (
     WINDOW_WIDTH,
@@ -218,6 +220,9 @@ class CheckInApp:
 
         checkin_file = get_today_checkin_file()
         create_checkin_file_if_needed(checkin_file)
+
+        image_path = capture_image(self.pending_name)
+        print("Captured:", image_path)
 
         save_checkin(
             checkin_file,
