@@ -74,13 +74,25 @@ The program checks the current date and automatically creates a new CSV file whe
 
 ```text
 smart-id-verification-system/
+│
 ├── main.py
-├── checkin_logs/
-│   └── yyyy-mm-dd.csv
+├── config.py
+├── file_setup.py
+├── validators.py
+├── data_service.py
+├── app.py
+│
+├── screens/
+│   ├── __init__.py
+│   ├── base_screen.py
+│   ├── screen1.py
+│   ├── screen2.py
+│   ├── screen3.py
+│   └── screen4.py
+│
 ├── database_folder/
-│   └── database.csv
-├── LICENSE
-└── README.md
+├── checkin_logs/
+└── terms_and_conditions.txt
 ```
 
 
