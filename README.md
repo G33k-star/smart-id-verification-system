@@ -111,3 +111,30 @@ screens/
     screen3.py      → Admin login
     screen4.py      → Admin dashboard
 ```
+
+```text
+SYSTEM FLOW:
+
+Card Swipe
+   ↓
+parse_swipe()  [validators.py]
+   ↓
+find_student_in_database()  [data_service.py]
+
+IF user exists:
+    → save_checkin()
+
+IF user does NOT exist:
+    → screen2 (registration)
+        → validate input
+        → add_student_to_database()
+        → save_checkin()
+```
+
+```text
+database.csv:
+[Name, Card ID, Student ID, Phone Number]
+
+checkin_YYYY-MM-DD.csv:
+[Name, Card ID, Student ID, Phone Number, Timestamp]
+```
