@@ -1,3 +1,5 @@
+# .csv check-in sheet module
+
 import csv
 import os
 from datetime import datetime, timedelta
