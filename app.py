@@ -1,9 +1,25 @@
+'''
+This system is a Smart ID Check-In System designed to log user attendance using a magnetic stripe card scanner.
+
+When a user swipes their ID:
+- The system parses the card data to extract name and card ID
+- It checks if the user exists in the database
+- If recognized, the user is checked in and logged into a daily CSV file
+- If not recognized, the system prompts the user to register and then logs the check-in
+
+The system runs on a Raspberry Pi with a USB card scanner and optional webcam. Data is stored locally using CSV files.
+'''
+
+
+
 import os
 import sys
 import subprocess
 import tkinter as tk
-from cam import capture_image
+from PIL import Image, ImageTk
+import cv2
 
+from cam import CameraManager
 
 from config import (
     WINDOW_WIDTH,
@@ -76,6 +92,10 @@ class CheckInApp:
             self.frames[FrameClass.__name__] = frame
             frame.place(relx=0, rely=0, relwidth=1, relheight=1)
 
+        self.camera = CameraManager()
+        self.camera_preview_job = None
+        self.camera_started = False
+
         self.show_frame("Screen1")
 
     def enable_kiosk_mode(self):
@@ -92,18 +112,23 @@ class CheckInApp:
         self.root.bind("<Control-w>", lambda event: "break")
 
     def safe_quit_program(self):
+        self.stop_camera_preview()
         self.root.destroy()
 
     def show_frame(self, frame_name):
-        frame = self.frames[frame_name]
-        frame.tkraise()
+        current_frame = self.frames[frame_name]
+        current_frame.tkraise()
 
         if frame_name == "Screen1":
-            frame.reset_screen()
-        elif frame_name == "Screen2":
-            frame.reset_screen()
-        elif frame_name == "Screen3":
-            frame.reset_screen()
+            current_frame.reset_screen()
+            self.start_camera_preview()
+        else:
+            self.stop_camera_preview()
+
+            if frame_name == "Screen2":
+                current_frame.reset_screen()
+            elif frame_name == "Screen3":
+                current_frame.reset_screen()
 
     def open_terms_window(self):
         win = tk.Toplevel(self.root)
@@ -117,7 +142,6 @@ class CheckInApp:
         text.config(state="disabled")
 
         tk.Button(win, text="Close", command=win.destroy, width=12).pack(pady=(0, 10))
-
 
     def open_csv_folder(self):
         self.open_path(CHECKIN_FOLDER)
@@ -135,6 +159,61 @@ class CheckInApp:
                 subprocess.Popen(["open", path])
         except Exception:
             pass
+
+    def start_camera_preview(self):
+        screen1 = self.frames["Screen1"]
+
+        if self.camera_preview_job is not None:
+            return
+
+        try:
+            if not self.camera_started:
+                self.camera.start()
+                self.camera_started = True
+
+            self.update_camera_preview()
+        except Exception:
+            self.camera_started = False
+            self.camera_preview_job = None
+            screen1.show_camera_unavailable()
+
+    def stop_camera_preview(self):
+        if self.camera_preview_job is not None:
+            try:
+                self.root.after_cancel(self.camera_preview_job)
+            except Exception:
+                pass
+            self.camera_preview_job = None
+
+        if self.camera_started:
+            try:
+                self.camera.stop()
+            except Exception:
+                pass
+            self.camera_started = False
+
+    def update_camera_preview(self):
+        if not self.camera_started:
+            self.camera_preview_job = None
+            return
+
+        screen1 = self.frames["Screen1"]
+
+        try:
+            preview_frame, faces = self.camera.get_preview_frame()
+
+            if preview_frame is not None:
+                rgb = cv2.cvtColor(preview_frame, cv2.COLOR_BGR2RGB)
+                image = Image.fromarray(rgb)
+                image = image.resize((640, 360))
+                tk_image = ImageTk.PhotoImage(image)
+                screen1.update_camera_image(tk_image)
+        except Exception:
+            screen1.show_camera_unavailable()
+            self.stop_camera_preview()
+            return
+
+        self.camera_preview_job = self.root.after(30, self.update_camera_preview)
 
     def process_swipe_from_screen1(self):
         swipe = self.swipe_var.get().strip()
@@ -160,9 +239,24 @@ class CheckInApp:
             screen1.focus_swipe()
             return
 
+        if not self.camera_started:
+            screen1.set_message("Camera is not available.", "red")
+            return
+
+        screen1.set_message("Processing...", "blue")
+        self.root.update_idletasks()
+
         student = find_student_in_database(card_id)
 
         if student:
+            success, image_path = self.camera.capture_image_with_face_check(student["Name"])
+
+            if not success:
+                screen1.set_message("No face detected. Please try again.", "red")
+                self.swipe_var.set("")
+                screen1.focus_swipe()
+                return
+
             save_checkin(
                 checkin_file,
                 student["Name"],
@@ -170,7 +264,14 @@ class CheckInApp:
                 student["Student ID"],
                 student["Phone Number"]
             )
-            screen1.set_message("User, {0} checked in.".format(student["Name"]), "green", success=True)
+
+            print("Captured:", image_path)
+
+            screen1.set_message(
+                "User, {0} checked in.".format(student["Name"]),
+                "green",
+                success=True
+            )
             self.swipe_var.set("")
             screen1.focus_swipe()
             return
@@ -209,6 +310,24 @@ class CheckInApp:
         self.mymdc_username_var.set(username)
         self.email_var.set(email)
 
+        screen2.set_status("Processing...", "blue")
+        self.root.update_idletasks()
+
+        if not self.camera_started:
+            try:
+                self.camera.start()
+                self.camera_started = True
+            except Exception:
+                screen2.set_message("Camera is not available.", "red")
+                return
+
+        success, image_path = self.camera.capture_image_with_face_check(self.pending_name)
+
+        if not success:
+            screen2.clear_status()
+            screen2.set_message("No face detected. Please try again.", "red")
+            return
+
         add_student_to_database(
             self.pending_name,
             self.pending_card_id,
@@ -221,9 +340,6 @@ class CheckInApp:
         checkin_file = get_today_checkin_file()
         create_checkin_file_if_needed(checkin_file)
 
-        image_path = capture_image(self.pending_name)
-        print("Captured:", image_path)
-
         save_checkin(
             checkin_file,
             self.pending_name,
@@ -232,11 +348,9 @@ class CheckInApp:
             phone
         )
 
-        screen2.set_message(
-            "User {0} added and checked in.".format(self.pending_name),
-            "green",
-            success=True
-        )
+        print("Captured:", image_path)
+
+        saved_name = self.pending_name
 
         self.pending_name = None
         self.pending_card_id = None
@@ -246,6 +360,14 @@ class CheckInApp:
         self.phone_var.set("")
         self.mymdc_username_var.set("")
         self.email_var.set("")
+
+        self.show_frame("Screen1")
+        screen1 = self.frames["Screen1"]
+        screen1.set_message(
+            "User {0} added and checked in.".format(saved_name),
+            "green",
+            success=True
+        )
 
         self.root.after(1800, lambda: self.show_frame("Screen1"))
 
