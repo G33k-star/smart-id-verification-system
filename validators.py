@@ -1,3 +1,5 @@
+# validates the data read from card
+
 def parse_swipe(swipe):
     swipe = swipe.strip()
 
