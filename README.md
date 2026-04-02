@@ -94,3 +94,20 @@ smart-id-verification-system/
 ├── checkin_logs/
 └── terms_and_conditions.txt
 ```
+
+```text
+FILE STRUCTURE:
+
+app.py              → Main application controller
+config.py           → Constants (window size, admin credentials, folders)
+
+file_setup.py       → Creates/loads database and check-in files
+validators.py       → Parses swipe data + validates inputs
+data_service.py     → Handles database lookup, add user, check-in logic
+
+screens/
+    screen1.py      → Swipe screen (main screen)
+    screen2.py      → New user registration
+    screen3.py      → Admin login
+    screen4.py      → Admin dashboard
+```
