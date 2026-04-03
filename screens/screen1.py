@@ -159,3 +159,19 @@ class Screen1(tk.Frame):
         """
         self.camera_active = False
         self.camera.release()
+
+def reset_screen(self):
+    """
+    Called whenever this screen is shown again
+    """
+    print("[Screen1] Resetting screen")
+
+    # Clear status
+    self.status_label.config(text="Ready - Swipe ID", fg="white")
+
+    # Clear swipe input
+    self.swipe_entry.delete(0, tk.END)
+
+    # Restart camera if needed
+    if not self.camera_active:
+        self.init_camera()
