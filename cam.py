@@ -106,11 +106,19 @@ class CameraManager:
         )
         return len(faces) > 0
 
-    def capture_image_with_face_check(self, person_name, output_folder="checkin_photos"):
-        frame = self.get_frame()
+def capture_image_with_face_check(self, person_name, output_folder="checkin_photos"):
+    frame = None
 
-        if frame is None:
-            return False, None
+    # Wait up to ~1 second for a frame
+    for _ in range(10):
+        frame = self.get_frame()
+        if frame is not None:
+            break
+        time.sleep(0.1)
+
+    if frame is None:
+        print("[CameraManager] ERROR: No frame available")
+        return False, None
 
         face_found = self.detect_face(frame)
         if not face_found:
