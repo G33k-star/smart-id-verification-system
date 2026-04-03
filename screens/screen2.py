@@ -1,147 +1,107 @@
 import tkinter as tk
-from .base_screen import BaseScreen
 
-class Screen2(BaseScreen):
+
+class Screen2(tk.Frame):
     def __init__(self, parent, controller):
-        BaseScreen.__init__(self, parent, controller)
+        super().__init__(parent, bg="white")
 
-        top_bar = tk.Frame(self, bg="white")
-        top_bar.pack(fill="x", padx=20, pady=20)
+        self.controller = controller
 
+        # =========================
+        # Title
+        # =========================
         tk.Label(
-            top_bar,
+            self,
             text="Add New User",
-            font=("Arial", 22, "bold"),
+            font=("Arial", 22),
             bg="white"
-        ).pack(side="left")
+        ).pack(pady=10)
 
-        center = tk.Frame(self, bg="white")
-        center.pack(expand=True)
-
-        tk.Label(
-            center,
-            text="Swipe Card",
-            font=("Arial", 14),
-            bg="white"
-        ).pack(pady=(10, 8))
-
-        self.swipe_entry = tk.Entry(
-            center,
-            textvariable=controller.swipe_var,
-            show="*",
-            width=40,
-            font=("Arial", 14),
-            state="disabled"
-        )
-        self.swipe_entry.pack(pady=(0, 15))
-
+        # =========================
+        # Message (top feedback)
+        # =========================
         self.message_label = tk.Label(
-            center,
-            text="User not recognized. Add new user?",
+            self,
+            text="",
+            font=("Arial", 14),
+            fg="black",
+            bg="white"
+        )
+        self.message_label.pack(pady=5)
+
+        # =========================
+        # Status (processing / errors)
+        # =========================
+        self.status_label = tk.Label(
+            self,
+            text="",
             font=("Arial", 12),
-            bg="white",
-            fg="black"
+            fg="blue",
+            bg="white"
         )
-        self.message_label.pack(pady=10)
+        self.status_label.pack(pady=5)
 
-        yes_no_frame = tk.Frame(center, bg="white")
-        yes_no_frame.pack(pady=10)
+        # =========================
+        # Input Fields
+        # =========================
+        form_frame = tk.Frame(self, bg="white")
+        form_frame.pack(pady=10)
 
-        self.yes_btn = tk.Button(
-            yes_no_frame,
-            text="Yes",
-            width=12,
-            command=self.show_add_user_fields
-        )
-        self.yes_btn.grid(row=0, column=0, padx=8)
+        # Student ID
+        tk.Label(form_frame, text="Student ID:", bg="white").grid(row=0, column=0, sticky="e", pady=5)
+        tk.Entry(form_frame, textvariable=controller.student_var, width=30).grid(row=0, column=1, pady=5)
 
-        self.no_btn = tk.Button(
-            yes_no_frame,
-            text="No",
-            width=12,
-            command=self.back_to_screen1
-        )
-        self.no_btn.grid(row=0, column=1, padx=8)
+        # Phone
+        tk.Label(form_frame, text="Phone Number:", bg="white").grid(row=1, column=0, sticky="e", pady=5)
+        tk.Entry(form_frame, textvariable=controller.phone_var, width=30).grid(row=1, column=1, pady=5)
 
-        self.add_user_frame = tk.Frame(center, bg="white")
+        # myMDC username
+        tk.Label(form_frame, text="myMDC Username:", bg="white").grid(row=2, column=0, sticky="e", pady=5)
+        tk.Entry(form_frame, textvariable=controller.mymdc_username_var, width=30).grid(row=2, column=1, pady=5)
 
-        tk.Label(self.add_user_frame, text="Student ID", bg="white", font=("Arial", 12)).pack(pady=(10, 5))
-        self.student_entry = tk.Entry(
-            self.add_user_frame,
-            textvariable=controller.student_var,
-            width=35,
-            font=("Arial", 12)
-        )
-        self.student_entry.pack(pady=(0, 8))
+        # Email (auto-filled)
+        tk.Label(form_frame, text="Email:", bg="white").grid(row=3, column=0, sticky="e", pady=5)
+        tk.Entry(form_frame, textvariable=controller.email_var, width=30, state="readonly").grid(row=3, column=1, pady=5)
 
-        tk.Label(self.add_user_frame, text="Phone Number", bg="white", font=("Arial", 12)).pack(pady=(5, 5))
-        self.phone_entry = tk.Entry(
-            self.add_user_frame,
-            textvariable=controller.phone_var,
-            width=35,
-            font=("Arial", 12)
-        )
-        self.phone_entry.pack(pady=(0, 8))
+        # =========================
+        # Buttons
+        # =========================
+        button_frame = tk.Frame(self, bg="white")
+        button_frame.pack(pady=15)
 
-        tk.Label(self.add_user_frame, text="myMDC Username", bg="white", font=("Arial", 12)).pack(pady=(5, 5))
-        self.username_entry = tk.Entry(
-            self.add_user_frame,
-            textvariable=controller.mymdc_username_var,
-            width=35,
-            font=("Arial", 12)
-        )
-        self.username_entry.pack(pady=(0, 12))
-
-        self.add_user_btn = tk.Button(
-            self.add_user_frame,
+        tk.Button(
+            button_frame,
             text="Add User",
-            width=18,
+            width=15,
             command=controller.add_user_and_check_in
-        )
-        self.add_user_btn.pack(pady=(5, 8))
+        ).grid(row=0, column=0, padx=10)
 
-        self.fields_visible = False
+        tk.Button(
+            button_frame,
+            text="Cancel",
+            width=15,
+            command=lambda: controller.show_frame("Screen1")
+        ).grid(row=0, column=1, padx=10)
 
-    def set_message(self, message, color="black", success=False):
-        self.message_label.config(
-            text=message,
-            fg=color,
-            font=("Arial", 16, "bold") if success else ("Arial", 12)
-        )
-
-    def show_add_user_fields(self):
-        if not self.fields_visible:
-            self.add_user_frame.pack(pady=10)
-            self.fields_visible = True
-        self.student_entry.focus_set()
-
-    def back_to_screen1(self):
-        self.controller.pending_name = None
-        self.controller.pending_card_id = None
-        self.controller.swipe_var.set("")
-        self.controller.student_var.set("")
-        self.controller.phone_var.set("")
-        self.controller.mymdc_username_var.set("")
-        self.controller.email_var.set("")
-        self.controller.show_frame("Screen1")
-
+    # =========================
+    # REQUIRED METHODS (for app.py)
+    # =========================
     def reset_screen(self):
-        self.set_message("User not recognized. Add new user?", "black", success=False)
+        self.clear_fields()
+        self.set_message("User not recognized. Add new user?", "black")
+        self.clear_status()
+
+    def set_message(self, text, color="black"):
+        self.message_label.config(text=text, fg=color)
+
+    def set_status(self, text, color="blue"):
+        self.status_label.config(text=text, fg=color)
+
+    def clear_status(self):
+        self.status_label.config(text="")
+
+    def clear_fields(self):
         self.controller.student_var.set("")
         self.controller.phone_var.set("")
         self.controller.mymdc_username_var.set("")
         self.controller.email_var.set("")
-
-        if self.fields_visible:
-            self.add_user_frame.pack_forget()
-            self.fields_visible = False
-
-    def set_status(self, text, color="black"):
-        if hasattr(self, "status_label"):
-            self.status_label.config(text=text, fg=color)
-        else:
-            print("[Screen2] status_label not found")
-    
-    def clear_status(self):
-        if hasattr(self, "status_label"):
-            self.status_label.config(text="")
