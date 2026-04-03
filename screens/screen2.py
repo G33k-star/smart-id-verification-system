@@ -35,7 +35,7 @@ class Screen2(BaseScreen):
         )
         self.swipe_entry.pack(pady=(0, 15))
 
-        self.message_label = tk.Label(
+        self.status_label = tk.Label(
             center,
             text="User not recognized. Add new user?",
             font=("Arial", 12),
