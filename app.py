@@ -1,4 +1,7 @@
 import tkinter as tk
+import os
+import sys
+import subprocess
 
 from config import *
 from file_setup import *
@@ -59,7 +62,6 @@ class CheckInApp:
     def show_frame(self, name):
         screen1 = self.frames["Screen1"]
 
-        # Stop camera if leaving Screen1
         if name != "Screen1":
             screen1.stop_camera()
 
@@ -70,7 +72,7 @@ class CheckInApp:
             frame.reset_screen()
 
     # =========================
-    # Terms Window (FIXED)
+    # Terms Window
     # =========================
     def open_terms_window(self):
         win = tk.Toplevel(self.root)
@@ -86,7 +88,27 @@ class CheckInApp:
         tk.Button(win, text="Close", command=win.destroy).pack(pady=10)
 
     # =========================
-    # Swipe Handling
+    # File Open Helpers (ADMIN)
+    # =========================
+    def open_csv_folder(self):
+        self.open_path(CHECKIN_FOLDER)
+
+    def open_database_folder(self):
+        self.open_path(DATABASE_FOLDER)
+
+    def open_path(self, path):
+        try:
+            if sys.platform.startswith("linux"):
+                subprocess.Popen(["xdg-open", path])
+            elif sys.platform.startswith("win"):
+                os.startfile(path)
+            elif sys.platform == "darwin":
+                subprocess.Popen(["open", path])
+        except Exception as e:
+            print("[App] Failed to open path:", e)
+
+    # =========================
+    # Swipe Logic
     # =========================
     def process_swipe_from_screen1(self):
         screen1 = self.frames["Screen1"]
@@ -107,7 +129,6 @@ class CheckInApp:
         checkin_file = get_today_checkin_file()
         create_checkin_file_if_needed(checkin_file)
 
-        # Already checked in
         if already_checked_in_today(checkin_file, card_id):
             screen1.set_message(f"{name} already checked in.", "orange")
             self.swipe_var.set("")
@@ -122,7 +143,7 @@ class CheckInApp:
         student = find_student_in_database(card_id)
 
         # =========================
-        # EXISTING USER
+        # Existing user
         # =========================
         if student:
             success, path = screen1.camera.capture_image_with_face_check(student["Name"])
@@ -146,7 +167,7 @@ class CheckInApp:
             return
 
         # =========================
-        # NEW USER
+        # New user
         # =========================
         self.pending_name = name
         self.pending_card_id = card_id
@@ -164,7 +185,6 @@ class CheckInApp:
         phone = self.phone_var.get().strip()
         username = self.mymdc_username_var.get().strip()
 
-        # Validation
         if not valid_student_id(sid):
             screen2.set_message("Invalid Student ID", "red")
             return
@@ -180,7 +200,6 @@ class CheckInApp:
         phone = normalize_phone_number(phone)
         username, email = build_mymdc_email(username)
 
-        # Switch back to camera screen
         self.show_frame("Screen1")
         screen1 = self.frames["Screen1"]
 
@@ -190,7 +209,6 @@ class CheckInApp:
             screen1.set_message("Camera error.", "red")
             return
 
-        # Save user
         add_student_to_database(
             self.pending_name,
             self.pending_card_id,
@@ -200,7 +218,6 @@ class CheckInApp:
             email
         )
 
-        # Save check-in
         checkin_file = get_today_checkin_file()
         create_checkin_file_if_needed(checkin_file)
 
@@ -216,7 +233,7 @@ class CheckInApp:
 
         name = self.pending_name
 
-        # Clear pending + fields
+        # Reset state
         self.pending_name = None
         self.pending_card_id = None
 
@@ -226,7 +243,6 @@ class CheckInApp:
         self.mymdc_username_var.set("")
         self.email_var.set("")
 
-        # Back to Screen1
         self.show_frame("Screen1")
         screen1.set_message(f"{name} added and checked in.", "green")
 
