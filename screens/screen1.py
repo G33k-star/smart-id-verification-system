@@ -80,50 +80,52 @@ class Screen1(tk.Frame):
     # =========================
     def reset_screen(self):
         print("[Screen1] Resetting screen")
-
-        # Reset UI only
+    
         self.status_label.config(text="Ready - Swipe ID", fg="white")
         self.swipe_entry.delete(0, tk.END)
-
-        # DO NOT restart camera here
+    
+        # DO NOTHING with camera here
 
     # =========================
     # Camera Initialization
     # =========================
     def init_camera(self):
         if self.camera_active:
-            return  # prevent double start
-
+            return
+    
         success = self.camera.start_camera()
-
+    
         if not success:
             self.show_camera_unavailable()
         else:
             self.camera_active = True
             self.status_label.config(text="Ready - Swipe ID")
-            self.update_camera()
+    
+            if not self.camera_loop_running:
+                self.camera_loop_running = True
+                self.update_camera()
 
     # =========================
     # Camera Loop (CRITICAL)
     # =========================
     def update_camera(self):
         if not self.camera_active:
+            self.camera_loop_running = False
             return
-
+    
         frame = self.camera.get_frame()
-
+    
         if frame is not None:
-            # Convert OpenCV → Tkinter
             frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
             image = Image.fromarray(frame)
             image = image.resize((500, 350))
-
+    
             photo = ImageTk.PhotoImage(image=image)
-
+    
             self.camera_label.config(image=photo)
-            self.camera_label.image = photo  # prevent garbage collection
-
-        # ALWAYS continue loop (even if frame fails)
+            self.camera_label.image = photo
+    
+        # schedule next frame ONLY ONCE
         self.after(30, self.update_camera)
 
     # =========================
@@ -159,7 +161,9 @@ class Screen1(tk.Frame):
     # =========================
     # Cleanup (when leaving screen)
     # =========================
-    def on_hide(self):
-        print("[Screen1] Releasing camera")
-        self.camera_active = False
-        self.camera.release()
+def on_hide(self):
+    print("[Screen1] Stopping camera")
+
+    self.camera_active = False
+    self.camera_loop_running = False
+    self.camera.release()
