@@ -321,3 +321,6 @@ class CheckInApp:
             self.admin_pass_var.set("")
             screen3.set_message("Incorrect credentials. Please try again.")
             screen3.focus_username()
+   def clear_status(self):
+       if hasattr(self, "status_label"):
+           self.status_label.config(text="")
