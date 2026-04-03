@@ -180,3 +180,18 @@ class CheckInApp:
 
         self.show_frame("Screen1")
         screen1.set_message(f"{name} added and checked in.", "green")
+
+def open_terms_window(self):
+    win = tk.Toplevel(self.root)
+    win.title("Terms and Conditions")
+    win.geometry("600x400")
+
+    from file_setup import get_terms_text
+
+    text = tk.Text(win, wrap="word")
+    text.pack(fill="both", expand=True, padx=10, pady=10)
+
+    text.insert("1.0", get_terms_text())
+    text.config(state="disabled")
+
+    tk.Button(win, text="Close", command=win.destroy).pack(pady=10)
