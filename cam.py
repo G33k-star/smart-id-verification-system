@@ -7,8 +7,8 @@ from datetime import datetime
 
 from file_setup import get_today_photo_folder
 
-CAMERA_INDEX = 1
-FACE_CASCADE_PATH = cv2.data.haarcascades + "haarcascade_frontalface_default.xml"
+CAMERA_INDEX = 0
+FACE_CASCADE_PATH = "/usr/share/opencv4/haarcascades/haarcascade_frontalface_default.xml"
 
 
 class CameraManager:
