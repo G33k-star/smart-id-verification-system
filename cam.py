@@ -1,58 +1,73 @@
-# camera module controls the USB cam
-
-import os
 import cv2
 import time
-from datetime import datetime
-
-from file_setup import get_today_photo_folder
-
-CAMERA_INDEX = 0
-FACE_CASCADE_PATH = "/usr/share/opencv4/haarcascades/haarcascade_frontalface_default.xml"
 
 
 class CameraManager:
     def __init__(self, index=0):
         self.index = index
         self.cap = None
+        self.is_running = False
 
     def start_camera(self):
+        """
+        Initialize camera safely.
+        Returns True if usable, False otherwise.
+        """
+
+        # Open camera (force V4L2 backend for Pi stability)
         self.cap = cv2.VideoCapture(self.index, cv2.CAP_V4L2)
 
         if not self.cap.isOpened():
-            print("Camera failed to open")
-            return False
+            print("[CameraManager] Camera failed to open")
+            self.cap = None
+            return False  # <-- Option C (no UI call here)
 
-        time.sleep(1)  # warm-up
+        # Warm-up period (critical on Pi)
+        time.sleep(1)
 
-        # Try multiple reads (important for Pi)
+        # Try multiple reads (avoid false failure)
         for i in range(10):
             ret, frame = self.cap.read()
-            if ret:
-                print("Camera initialized successfully")
+            print(f"[CameraManager] Warmup attempt {i}: ret={ret}")
+
+            if ret and frame is not None:
+                self.is_running = True
+                print("[CameraManager] Camera initialized successfully")
                 return True
+
             time.sleep(0.1)
 
-        print("Camera opened but no frames received")
+        # If we reach here → camera opened but unusable
+        print("[CameraManager] Camera opened but no frames received")
+        self.cap.release()
+        self.cap = None
         return False
 
     def get_frame(self):
-        if self.cap is None:
+        """
+        Safely get a frame.
+        Returns None if frame not available (do NOT treat as fatal).
+        """
+
+        if not self.cap or not self.is_running:
             return None
 
         ret, frame = self.cap.read()
 
-        if not ret:
-            return None  # don't crash system
+        if not ret or frame is None:
+            # Non-fatal: skip frame
+            return None
 
         return frame
 
     def release(self):
+        """
+        Release camera cleanly.
+        """
+
         if self.cap:
+            print("[CameraManager] Releasing camera")
             self.cap.release()
             self.cap = None
 
-def sanitize_name(name):
-    return "".join(
-        c for c in name if c.isalnum() or c in (" ", "_", "-")
-    ).strip().replace(" ", "_")
+        self.is_running = False
