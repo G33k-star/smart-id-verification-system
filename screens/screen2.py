@@ -141,3 +141,7 @@ class Screen2(BaseScreen):
             self.status_label.config(text=text, fg=color)
         else:
             print("[Screen2] status_label not found")
+    
+    def clear_status(self):
+        if hasattr(self, "status_label"):
+            self.status_label.config(text="")
