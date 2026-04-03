@@ -16,7 +16,7 @@ class Screen1(tk.Frame):
         # =========================
         self.camera = CameraManager()
         self.camera_active = False
-
+        self.camera_loop_running = False
         # =========================
         # UI Layout
         # =========================
