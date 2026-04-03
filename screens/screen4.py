@@ -15,37 +15,34 @@ class Screen4(tk.Frame):
             bg="white"
         ).pack(pady=20)
 
-        button_frame = tk.Frame(self, bg="white")
-        button_frame.pack(pady=20)
-
         tk.Button(
-            button_frame,
+            self,
             text="Open Check-In Folder",
-            width=24,
+            width=25,
             height=2,
             command=controller.open_csv_folder
         ).pack(pady=10)
 
         tk.Button(
-            button_frame,
+            self,
             text="Open Database Folder",
-            width=24,
+            width=25,
             height=2,
             command=controller.open_database_folder
         ).pack(pady=10)
 
         tk.Button(
-            button_frame,
+            self,
             text="Back",
-            width=24,
+            width=25,
             height=2,
             command=lambda: controller.show_frame("Screen1")
         ).pack(pady=10)
 
         tk.Button(
-            button_frame,
+            self,
             text="Quit Program",
-            width=24,
+            width=25,
             height=2,
             command=controller.safe_quit_program
         ).pack(pady=10)
