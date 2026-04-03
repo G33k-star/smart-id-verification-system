@@ -110,7 +110,6 @@ class Screen1(tk.Frame):
     # =========================
     def update_camera(self):
         if not self.camera_active:
-            self.camera_loop_running = False
             return
     
         frame = self.camera.get_frame()
@@ -125,7 +124,6 @@ class Screen1(tk.Frame):
             self.camera_label.config(image=photo)
             self.camera_label.image = photo
     
-        # schedule next frame ONLY ONCE
         self.after(30, self.update_camera)
 
     # =========================
