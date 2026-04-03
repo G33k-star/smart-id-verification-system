@@ -1,12 +1,40 @@
-import tkinter as tk
 import os
-import subprocess
 import sys
+import subprocess
+import tkinter as tk
 
-from config import *
-from file_setup import *
-from validators import *
-from data_service import *
+from config import (
+    WINDOW_WIDTH,
+    WINDOW_HEIGHT,
+    ADMIN_USERNAME,
+    ADMIN_PASSWORD,
+    CHECKIN_FOLDER,
+    DATABASE_FOLDER
+)
+
+from file_setup import (
+    create_database_if_needed,
+    create_terms_file_if_needed,
+    get_terms_text,
+    get_today_checkin_file,
+    create_checkin_file_if_needed
+)
+
+from validators import (
+    parse_swipe,
+    valid_student_id,
+    valid_phone_number,
+    normalize_phone_number,
+    valid_mymdc_username,
+    build_mymdc_email
+)
+
+from data_service import (
+    find_student_in_database,
+    add_student_to_database,
+    already_checked_in_today,
+    save_checkin
+)
 
 from screens.screen1 import Screen1
 from screens.screen2 import Screen2
@@ -18,14 +46,12 @@ class CheckInApp:
     def __init__(self, root):
         self.root = root
         self.root.title("ID Check-In System")
-        self.root.geometry(f"{WINDOW_WIDTH}x{WINDOW_HEIGHT}")
+        self.root.geometry("{0}x{1}".format(WINDOW_WIDTH, WINDOW_HEIGHT))
+        self.root.configure(bg="white")
 
         create_database_if_needed()
         create_terms_file_if_needed()
 
-        # =========================
-        # Variables
-        # =========================
         self.swipe_var = tk.StringVar()
         self.student_var = tk.StringVar()
         self.phone_var = tk.StringVar()
@@ -38,54 +64,42 @@ class CheckInApp:
         self.pending_name = None
         self.pending_card_id = None
 
-        # =========================
-        # UI Setup
-        # =========================
-        self.container = tk.Frame(self.root)
+        self.container = tk.Frame(self.root, bg="white")
         self.container.pack(fill="both", expand=True)
 
         self.frames = {}
-        for F in (Screen1, Screen2, Screen3, Screen4):
-            frame = F(self.container, self)
-            self.frames[F.__name__] = frame
-            frame.place(relwidth=1, relheight=1)
+        for frame_class in (Screen1, Screen2, Screen3, Screen4):
+            frame = frame_class(self.container, self)
+            self.frames[frame_class.__name__] = frame
+            frame.place(relx=0, rely=0, relwidth=1, relheight=1)
 
         self.show_frame("Screen1")
 
-    # =========================
-    # Navigation
-    # =========================
-    def show_frame(self, name):
+    def show_frame(self, frame_name):
         screen1 = self.frames["Screen1"]
 
-        if name != "Screen1":
+        if frame_name != "Screen1":
             screen1.stop_camera()
 
-        frame = self.frames[name]
+        frame = self.frames[frame_name]
         frame.tkraise()
 
         if hasattr(frame, "reset_screen"):
             frame.reset_screen()
 
-    # =========================
-    # Terms Window
-    # =========================
     def open_terms_window(self):
         win = tk.Toplevel(self.root)
         win.title("Terms and Conditions")
-        win.geometry("600x400")
+        win.geometry("700x450")
+        win.configure(bg="white")
 
-        text = tk.Text(win, wrap="word")
+        text = tk.Text(win, wrap="word", font=("Arial", 11))
         text.pack(fill="both", expand=True, padx=10, pady=10)
-
         text.insert("1.0", get_terms_text())
         text.config(state="disabled")
 
-        tk.Button(win, text="Close", command=win.destroy).pack(pady=10)
+        tk.Button(win, text="Close", command=win.destroy, width=12).pack(pady=(0, 10))
 
-    # =========================
-    # Open Folders
-    # =========================
     def open_csv_folder(self):
         self.open_path(CHECKIN_FOLDER)
 
@@ -100,67 +114,61 @@ class CheckInApp:
                 os.startfile(path)
             elif sys.platform == "darwin":
                 subprocess.Popen(["open", path])
-        except Exception as e:
-            print(f"[App] Failed to open path: {e}")
+        except Exception as exc:
+            print("[App] Failed to open path:", exc)
 
-    # =========================
-    # SAFE QUIT (FIXED)
-    # =========================
     def safe_quit_program(self):
         print("[App] Safe shutdown initiated")
-
         try:
             screen1 = self.frames.get("Screen1")
             if screen1:
                 screen1.stop_camera()
-        except Exception as e:
-            print(f"[App] Camera shutdown error: {e}")
+        except Exception as exc:
+            print("[App] Camera shutdown error:", exc)
 
         self.root.destroy()
 
-    # =========================
-    # Swipe Handling
-    # =========================
     def process_swipe_from_screen1(self):
         screen1 = self.frames["Screen1"]
 
         swipe = self.swipe_var.get().strip()
-
-        if not swipe:
+        if swipe == "":
             screen1.set_message("No swipe detected.", "red")
+            screen1.focus_swipe()
             return
 
         try:
             name, card_id = parse_swipe(swipe)
-        except:
+        except Exception:
             screen1.set_message("Invalid swipe format.", "red")
             self.swipe_var.set("")
+            screen1.focus_swipe()
             return
 
         checkin_file = get_today_checkin_file()
         create_checkin_file_if_needed(checkin_file)
 
         if already_checked_in_today(checkin_file, card_id):
-            screen1.set_message(f"{name} already checked in.", "orange")
+            screen1.set_message("{0} already checked in.".format(name), "orange")
             self.swipe_var.set("")
+            screen1.focus_swipe()
             return
 
         if not screen1.camera_active:
             screen1.set_message("Camera unavailable.", "red")
+            screen1.focus_swipe()
             return
 
         screen1.set_message("Processing...", "blue")
 
         student = find_student_in_database(card_id)
 
-        # =========================
-        # EXISTING USER
-        # =========================
         if student:
-            success, path = screen1.camera.capture_image_with_face_check(student["Name"])
+            success, image_path = screen1.camera.capture_image_with_face_check(student["Name"])
 
             if not success:
                 screen1.set_message("Camera error.", "red")
+                screen1.focus_swipe()
                 return
 
             save_checkin(
@@ -171,58 +179,61 @@ class CheckInApp:
                 student["Phone Number"]
             )
 
-            print("Saved:", path)
-
-            # ✅ PHOTO CONFIRMATION
-            screen1.set_message("Photo captured", "cyan")
-            self.root.after(800, lambda:
-                screen1.set_message(f"{student['Name']} checked in.", "green")
+            print("Saved:", image_path)
+            screen1.set_message("Photo captured.", "blue")
+            self.root.after(
+                800,
+                lambda: screen1.set_message("{0} checked in.".format(student["Name"]), "green")
             )
 
             self.swipe_var.set("")
+            screen1.focus_swipe()
             return
 
-        # =========================
-        # NEW USER
-        # =========================
         self.pending_name = name
         self.pending_card_id = card_id
-
         self.show_frame("Screen2")
 
-    # =========================
-    # Add User
-    # =========================
     def add_user_and_check_in(self):
-        screen1 = self.frames["Screen1"]
         screen2 = self.frames["Screen2"]
+
+        if not self.pending_name or not self.pending_card_id:
+            screen2.set_message("No pending user found.", "red")
+            return
 
         sid = self.student_var.get().strip()
         phone = self.phone_var.get().strip()
         username = self.mymdc_username_var.get().strip()
 
         if not valid_student_id(sid):
-            screen2.set_message("Invalid Student ID", "red")
+            screen2.set_message("Invalid Student ID.", "red")
             return
 
         if not valid_phone_number(phone):
-            screen2.set_message("Invalid phone number", "red")
+            screen2.set_message("Invalid phone number.", "red")
             return
 
         if not valid_mymdc_username(username):
-            screen2.set_message("Invalid username", "red")
+            screen2.set_message("Invalid myMDC username.", "red")
             return
 
         phone = normalize_phone_number(phone)
         username, email = build_mymdc_email(username)
+        self.email_var.set(email)
 
         self.show_frame("Screen1")
         screen1 = self.frames["Screen1"]
 
-        success, path = screen1.camera.capture_image_with_face_check(self.pending_name)
+        if not screen1.camera_active:
+            self.show_frame("Screen2")
+            screen2.set_message("Camera unavailable.", "red")
+            return
+
+        success, image_path = screen1.camera.capture_image_with_face_check(self.pending_name)
 
         if not success:
-            screen1.set_message("Camera error.", "red")
+            self.show_frame("Screen2")
+            screen2.set_message("Camera error.", "red")
             return
 
         add_student_to_database(
@@ -245,9 +256,9 @@ class CheckInApp:
             phone
         )
 
-        print("Saved:", path)
+        print("Saved:", image_path)
 
-        name = self.pending_name
+        saved_name = self.pending_name
         self.pending_name = None
         self.pending_card_id = None
 
@@ -257,24 +268,25 @@ class CheckInApp:
         self.mymdc_username_var.set("")
         self.email_var.set("")
 
-        # ✅ PHOTO CONFIRMATION
-        screen1.set_message("Photo captured", "cyan")
-        self.root.after(800, lambda:
-            screen1.set_message(f"{name} added and checked in.", "green")
+        self.show_frame("Screen1")
+        screen1 = self.frames["Screen1"]
+        screen1.set_message("Photo captured.", "blue")
+        self.root.after(
+            800,
+            lambda: screen1.set_message("{0} added and checked in.".format(saved_name), "green")
         )
 
-    # =========================
-    # Admin Login
-    # =========================
     def check_admin_credentials(self):
         screen3 = self.frames["Screen3"]
 
-        user = self.admin_user_var.get().strip()
-        pwd = self.admin_pass_var.get().strip()
+        username = self.admin_user_var.get().strip()
+        password = self.admin_pass_var.get().strip()
 
-        if user == ADMIN_USERNAME and pwd == ADMIN_PASSWORD:
+        if username == ADMIN_USERNAME and password == ADMIN_PASSWORD:
             self.admin_user_var.set("")
             self.admin_pass_var.set("")
             self.show_frame("Screen4")
         else:
+            self.admin_user_var.set("")
+            self.admin_pass_var.set("")
             screen3.set_message("Incorrect credentials.")
