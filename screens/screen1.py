@@ -83,7 +83,7 @@ class Screen1(tk.Frame):
         self.status_label.config(text="Ready - Swipe ID", fg="white")
         self.swipe_entry.delete(0, tk.END)
     
-        # 🚫 DO NOT restart camera here
+        # DO NOT restart camera here
         # The camera is already running
 
     # =========================
