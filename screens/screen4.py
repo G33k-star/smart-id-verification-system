@@ -1,50 +1,54 @@
 import tkinter as tk
-from .base_screen import BaseScreen
 
-class Screen4(BaseScreen):
+
+class Screen4(tk.Frame):
     def __init__(self, parent, controller):
-        BaseScreen.__init__(self, parent, controller)
+        super().__init__(parent, bg="white")
 
-        top_bar = tk.Frame(self, bg="white")
-        top_bar.pack(fill="x", padx=20, pady=20)
+        self.controller = controller
 
         tk.Label(
-            top_bar,
+            self,
             text="Admin Dashboard",
-            font=("Arial", 22, "bold"),
+            font=("Arial", 22),
+            fg="black",
             bg="white"
-        ).pack(side="left")
+        ).pack(pady=20)
+
+        button_frame = tk.Frame(self, bg="white")
+        button_frame.pack(pady=20)
 
         tk.Button(
-            top_bar,
-            text="Exit Admin",
-            width=12,
-            command=lambda: controller.show_frame("Screen1")
-        ).pack(side="right")
-
-        center = tk.Frame(self, bg="white")
-        center.pack(expand=True)
-
-        tk.Button(
-            center,
-            text="Access CSV Files",
+            button_frame,
+            text="Open Check-In Folder",
             width=24,
             height=2,
             command=controller.open_csv_folder
         ).pack(pady=10)
 
         tk.Button(
-            center,
-            text="Access Database Folder",
+            button_frame,
+            text="Open Database Folder",
             width=24,
             height=2,
             command=controller.open_database_folder
         ).pack(pady=10)
 
         tk.Button(
-            center,
+            button_frame,
+            text="Back",
+            width=24,
+            height=2,
+            command=lambda: controller.show_frame("Screen1")
+        ).pack(pady=10)
+
+        tk.Button(
+            button_frame,
             text="Quit Program",
             width=24,
             height=2,
             command=controller.safe_quit_program
         ).pack(pady=10)
+
+    def reset_screen(self):
+        pass
