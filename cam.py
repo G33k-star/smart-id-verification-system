@@ -20,7 +20,6 @@ class CameraManager:
 
         self.running = True
 
-        # Start background thread
         thread = threading.Thread(target=self._capture_loop, daemon=True)
         thread.start()
 
@@ -28,7 +27,7 @@ class CameraManager:
         return True
 
     def _capture_loop(self):
-        time.sleep(1)  # warm-up
+        time.sleep(1)
 
         while self.running:
             ret, frame = self.cap.read()
@@ -37,7 +36,7 @@ class CameraManager:
                 with self.lock:
                     self.frame = frame
 
-            time.sleep(0.01)  # small delay prevents CPU overload
+            time.sleep(0.01)
 
     def get_frame(self):
         with self.lock:
