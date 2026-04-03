@@ -135,3 +135,9 @@ class Screen2(BaseScreen):
         if self.fields_visible:
             self.add_user_frame.pack_forget()
             self.fields_visible = False
+
+    def set_status(self, text, color="black"):
+        if hasattr(self, "status_label"):
+            self.status_label.config(text=text, fg=color)
+        else:
+            print("[Screen2] status_label not found")
