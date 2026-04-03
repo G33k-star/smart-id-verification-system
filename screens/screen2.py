@@ -7,19 +7,14 @@ class Screen2(tk.Frame):
 
         self.controller = controller
 
-        # =========================
-        # Title
-        # =========================
         tk.Label(
             self,
             text="Add New User",
             font=("Arial", 22),
+            fg="black",
             bg="white"
-        ).pack(pady=10)
+        ).pack(pady=15)
 
-        # =========================
-        # Message (top feedback)
-        # =========================
         self.message_label = tk.Label(
             self,
             text="",
@@ -29,45 +24,32 @@ class Screen2(tk.Frame):
         )
         self.message_label.pack(pady=5)
 
-        # =========================
-        # Status (processing / errors)
-        # =========================
         self.status_label = tk.Label(
             self,
             text="",
             font=("Arial", 12),
-            fg="blue",
+            fg="black",
             bg="white"
         )
         self.status_label.pack(pady=5)
 
-        # =========================
-        # Input Fields
-        # =========================
         form_frame = tk.Frame(self, bg="white")
-        form_frame.pack(pady=10)
+        form_frame.pack(pady=15)
 
-        # Student ID
-        tk.Label(form_frame, text="Student ID:", bg="white").grid(row=0, column=0, sticky="e", pady=5)
-        tk.Entry(form_frame, textvariable=controller.student_var, width=30).grid(row=0, column=1, pady=5)
+        tk.Label(form_frame, text="Student ID:", fg="black", bg="white").grid(row=0, column=0, sticky="e", pady=5, padx=5)
+        tk.Entry(form_frame, textvariable=controller.student_var, width=30).grid(row=0, column=1, pady=5, padx=5)
 
-        # Phone
-        tk.Label(form_frame, text="Phone Number:", bg="white").grid(row=1, column=0, sticky="e", pady=5)
-        tk.Entry(form_frame, textvariable=controller.phone_var, width=30).grid(row=1, column=1, pady=5)
+        tk.Label(form_frame, text="Phone Number:", fg="black", bg="white").grid(row=1, column=0, sticky="e", pady=5, padx=5)
+        tk.Entry(form_frame, textvariable=controller.phone_var, width=30).grid(row=1, column=1, pady=5, padx=5)
 
-        # myMDC username
-        tk.Label(form_frame, text="myMDC Username:", bg="white").grid(row=2, column=0, sticky="e", pady=5)
-        tk.Entry(form_frame, textvariable=controller.mymdc_username_var, width=30).grid(row=2, column=1, pady=5)
+        tk.Label(form_frame, text="myMDC Username:", fg="black", bg="white").grid(row=2, column=0, sticky="e", pady=5, padx=5)
+        tk.Entry(form_frame, textvariable=controller.mymdc_username_var, width=30).grid(row=2, column=1, pady=5, padx=5)
 
-        # Email (auto-filled)
-        tk.Label(form_frame, text="Email:", bg="white").grid(row=3, column=0, sticky="e", pady=5)
-        tk.Entry(form_frame, textvariable=controller.email_var, width=30, state="readonly").grid(row=3, column=1, pady=5)
+        tk.Label(form_frame, text="Email:", fg="black", bg="white").grid(row=3, column=0, sticky="e", pady=5, padx=5)
+        tk.Entry(form_frame, textvariable=controller.email_var, width=30, state="readonly").grid(row=3, column=1, pady=5, padx=5)
 
-        # =========================
-        # Buttons
-        # =========================
         button_frame = tk.Frame(self, bg="white")
-        button_frame.pack(pady=15)
+        button_frame.pack(pady=20)
 
         tk.Button(
             button_frame,
@@ -83,9 +65,6 @@ class Screen2(tk.Frame):
             command=lambda: controller.show_frame("Screen1")
         ).grid(row=0, column=1, padx=10)
 
-    # =========================
-    # REQUIRED METHODS (for app.py)
-    # =========================
     def reset_screen(self):
         self.clear_fields()
         self.set_message("User not recognized. Add new user?", "black")
@@ -94,7 +73,7 @@ class Screen2(tk.Frame):
     def set_message(self, text, color="black"):
         self.message_label.config(text=text, fg=color)
 
-    def set_status(self, text, color="blue"):
+    def set_status(self, text, color="black"):
         self.status_label.config(text=text, fg=color)
 
     def clear_status(self):
