@@ -70,26 +70,30 @@ class Screen1(tk.Frame):
         )
         self.disclaimer.pack(side="bottom", pady=10)
 
-        # Start camera
+        # =========================
+        # Start Camera ONCE
+        # =========================
         self.init_camera()
 
     # =========================
-    # REQUIRED METHOD (FIX)
+    # REQUIRED METHOD (for app.py)
     # =========================
     def reset_screen(self):
         print("[Screen1] Resetting screen")
-    
+
         # Reset UI only
         self.status_label.config(text="Ready - Swipe ID", fg="white")
         self.swipe_entry.delete(0, tk.END)
-    
+
         # DO NOT restart camera here
-        # The camera is already running
 
     # =========================
     # Camera Initialization
     # =========================
     def init_camera(self):
+        if self.camera_active:
+            return  # prevent double start
+
         success = self.camera.start_camera()
 
         if not success:
@@ -100,19 +104,26 @@ class Screen1(tk.Frame):
             self.update_camera()
 
     # =========================
-    # Camera Loop
+    # Camera Loop (CRITICAL)
     # =========================
     def update_camera(self):
         if not self.camera_active:
             return
-    
+
         frame = self.camera.get_frame()
-    
+
         if frame is not None:
-            # render frame
-            ...
-    
-        # ALWAYS continue loop
+            # Convert OpenCV → Tkinter
+            frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+            image = Image.fromarray(frame)
+            image = image.resize((500, 350))
+
+            photo = ImageTk.PhotoImage(image=image)
+
+            self.camera_label.config(image=photo)
+            self.camera_label.image = photo  # prevent garbage collection
+
+        # ALWAYS continue loop (even if frame fails)
         self.after(30, self.update_camera)
 
     # =========================
@@ -142,12 +153,13 @@ class Screen1(tk.Frame):
         self.swipe_entry.delete(0, tk.END)
         self.status_label.config(text="Processing...")
 
-        # Placeholder logic
+        # Placeholder logic (replace later)
         self.after(500, lambda: self.status_label.config(text="Check-in successful"))
 
     # =========================
-    # Cleanup (optional)
+    # Cleanup (when leaving screen)
     # =========================
     def on_hide(self):
+        print("[Screen1] Releasing camera")
         self.camera_active = False
         self.camera.release()
