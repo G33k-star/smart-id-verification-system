@@ -1,6 +1,3 @@
-import os
-import sys
-import subprocess
 import tkinter as tk
 
 from config import *
@@ -20,11 +17,14 @@ class CheckInApp:
         self.root.title("ID Check-In System")
         self.root.geometry(f"{WINDOW_WIDTH}x{WINDOW_HEIGHT}")
 
+        # =========================
+        # Setup files
+        # =========================
         create_database_if_needed()
         create_terms_file_if_needed()
 
         # =========================
-        # VARIABLES
+        # Variables
         # =========================
         self.swipe_var = tk.StringVar()
         self.student_var = tk.StringVar()
@@ -39,12 +39,13 @@ class CheckInApp:
         self.pending_card_id = None
 
         # =========================
-        # UI SETUP
+        # UI container
         # =========================
         self.container = tk.Frame(self.root)
         self.container.pack(fill="both", expand=True)
 
         self.frames = {}
+
         for F in (Screen1, Screen2, Screen3, Screen4):
             frame = F(self.container, self)
             self.frames[F.__name__] = frame
@@ -52,9 +53,13 @@ class CheckInApp:
 
         self.show_frame("Screen1")
 
+    # =========================
+    # Navigation
+    # =========================
     def show_frame(self, name):
         screen1 = self.frames["Screen1"]
 
+        # Stop camera if leaving Screen1
         if name != "Screen1":
             screen1.stop_camera()
 
@@ -65,12 +70,29 @@ class CheckInApp:
             frame.reset_screen()
 
     # =========================
-    # SWIPE LOGIC
+    # Terms Window (FIXED)
+    # =========================
+    def open_terms_window(self):
+        win = tk.Toplevel(self.root)
+        win.title("Terms and Conditions")
+        win.geometry("600x400")
+
+        text = tk.Text(win, wrap="word")
+        text.pack(fill="both", expand=True, padx=10, pady=10)
+
+        text.insert("1.0", get_terms_text())
+        text.config(state="disabled")
+
+        tk.Button(win, text="Close", command=win.destroy).pack(pady=10)
+
+    # =========================
+    # Swipe Handling
     # =========================
     def process_swipe_from_screen1(self):
         screen1 = self.frames["Screen1"]
 
         swipe = self.swipe_var.get().strip()
+
         if not swipe:
             screen1.set_message("No swipe detected.", "red")
             return
@@ -85,8 +107,10 @@ class CheckInApp:
         checkin_file = get_today_checkin_file()
         create_checkin_file_if_needed(checkin_file)
 
+        # Already checked in
         if already_checked_in_today(checkin_file, card_id):
             screen1.set_message(f"{name} already checked in.", "orange")
+            self.swipe_var.set("")
             return
 
         if not screen1.camera_active:
@@ -97,6 +121,9 @@ class CheckInApp:
 
         student = find_student_in_database(card_id)
 
+        # =========================
+        # EXISTING USER
+        # =========================
         if student:
             success, path = screen1.camera.capture_image_with_face_check(student["Name"])
 
@@ -104,21 +131,30 @@ class CheckInApp:
                 screen1.set_message("Camera error.", "red")
                 return
 
-            save_checkin(checkin_file, student["Name"], student["Card ID"],
-                         student["Student ID"], student["Phone Number"])
+            save_checkin(
+                checkin_file,
+                student["Name"],
+                student["Card ID"],
+                student["Student ID"],
+                student["Phone Number"]
+            )
 
             print("Saved:", path)
+
             screen1.set_message(f"{student['Name']} checked in.", "green")
             self.swipe_var.set("")
             return
 
-        # New user
+        # =========================
+        # NEW USER
+        # =========================
         self.pending_name = name
         self.pending_card_id = card_id
+
         self.show_frame("Screen2")
 
     # =========================
-    # ADD USER
+    # Add New User
     # =========================
     def add_user_and_check_in(self):
         screen1 = self.frames["Screen1"]
@@ -128,12 +164,13 @@ class CheckInApp:
         phone = self.phone_var.get().strip()
         username = self.mymdc_username_var.get().strip()
 
+        # Validation
         if not valid_student_id(sid):
             screen2.set_message("Invalid Student ID", "red")
             return
 
         if not valid_phone_number(phone):
-            screen2.set_message("Invalid phone", "red")
+            screen2.set_message("Invalid phone number", "red")
             return
 
         if not valid_mymdc_username(username):
@@ -143,15 +180,17 @@ class CheckInApp:
         phone = normalize_phone_number(phone)
         username, email = build_mymdc_email(username)
 
+        # Switch back to camera screen
         self.show_frame("Screen1")
         screen1 = self.frames["Screen1"]
 
         success, path = screen1.camera.capture_image_with_face_check(self.pending_name)
 
         if not success:
-            screen1.set_message("Camera error", "red")
+            screen1.set_message("Camera error.", "red")
             return
 
+        # Save user
         add_student_to_database(
             self.pending_name,
             self.pending_card_id,
@@ -161,6 +200,7 @@ class CheckInApp:
             email
         )
 
+        # Save check-in
         checkin_file = get_today_checkin_file()
         create_checkin_file_if_needed(checkin_file)
 
@@ -175,23 +215,33 @@ class CheckInApp:
         print("Saved:", path)
 
         name = self.pending_name
+
+        # Clear pending + fields
         self.pending_name = None
         self.pending_card_id = None
 
+        self.swipe_var.set("")
+        self.student_var.set("")
+        self.phone_var.set("")
+        self.mymdc_username_var.set("")
+        self.email_var.set("")
+
+        # Back to Screen1
         self.show_frame("Screen1")
         screen1.set_message(f"{name} added and checked in.", "green")
 
-def open_terms_window(self):
-    win = tk.Toplevel(self.root)
-    win.title("Terms and Conditions")
-    win.geometry("600x400")
+    # =========================
+    # Admin Login
+    # =========================
+    def check_admin_credentials(self):
+        screen3 = self.frames["Screen3"]
 
-    from file_setup import get_terms_text
+        user = self.admin_user_var.get().strip()
+        pwd = self.admin_pass_var.get().strip()
 
-    text = tk.Text(win, wrap="word")
-    text.pack(fill="both", expand=True, padx=10, pady=10)
-
-    text.insert("1.0", get_terms_text())
-    text.config(state="disabled")
-
-    tk.Button(win, text="Close", command=win.destroy).pack(pady=10)
+        if user == ADMIN_USERNAME and pwd == ADMIN_PASSWORD:
+            self.admin_user_var.set("")
+            self.admin_pass_var.set("")
+            self.show_frame("Screen4")
+        else:
+            screen3.set_message("Incorrect credentials.")
