@@ -7,20 +7,12 @@ from cam import CameraManager
 
 class Screen1(tk.Frame):
     def __init__(self, parent, controller):
-        super().__init__(parent)
+        super().__init__(parent, bg="black")
 
         self.controller = controller
-
-        # =========================
-        # Camera Setup
-        # =========================
-        self.camera = CameraManager()
+        self.camera = CameraManager(index=0)
         self.camera_active = False
-        self.camera_loop_running = False
-        # =========================
-        # UI Layout
-        # =========================
-        self.configure(bg="black")
+        self.camera_loop_job = None
 
         self.title_label = tk.Label(
             self,
@@ -31,137 +23,128 @@ class Screen1(tk.Frame):
         )
         self.title_label.pack(pady=10)
 
-        self.camera_label = tk.Label(self, bg="black")
+        self.camera_label = tk.Label(
+            self,
+            bg="black",
+            width=640,
+            height=360
+        )
         self.camera_label.pack(pady=10)
 
-        self.status_label = tk.Label(
+        self.message_label = tk.Label(
             self,
             text="Initializing...",
             font=("Arial", 14),
             fg="white",
             bg="black"
         )
-        self.status_label.pack(pady=10)
+        self.message_label.pack(pady=10)
 
         self.swipe_entry = tk.Entry(
             self,
+            textvariable=self.controller.swipe_var,
             font=("Arial", 16),
             show="*",
-            justify="center"
+            justify="center",
+            width=40
         )
         self.swipe_entry.pack(pady=20)
-        self.swipe_entry.focus_set()
-
-        self.swipe_entry.bind("<Return>", self.process_swipe)
+        self.swipe_entry.bind("<Return>", lambda event: self.controller.process_swipe_from_screen1())
 
         self.admin_button = tk.Button(
             self,
             text="Admin",
-            command=lambda: controller.show_frame("Screen3")
+            width=12,
+            command=lambda: self.controller.show_frame("Screen3")
         )
-        self.admin_button.place(relx=0.95, rely=0.02, anchor="ne")
+        self.admin_button.place(relx=0.95, rely=0.03, anchor="ne")
 
-        self.disclaimer = tk.Label(
+        self.terms_button = tk.Button(
+            self,
+            text="Terms and Conditions",
+            width=20,
+            command=self.controller.open_terms_window
+        )
+        self.terms_button.pack(pady=(0, 10))
+
+        self.disclaimer_label = tk.Label(
             self,
             text="By scanning your ID, you agree to the terms and conditions.",
             font=("Arial", 10),
             fg="gray",
             bg="black"
         )
-        self.disclaimer.pack(side="bottom", pady=10)
+        self.disclaimer_label.pack(side="bottom", pady=10)
 
-        # =========================
-        # Start Camera ONCE
-        # =========================
-        self.init_camera()
-
-    # =========================
-    # REQUIRED METHOD (for app.py)
-    # =========================
     def reset_screen(self):
-        print("[Screen1] Resetting screen")
-    
-        self.status_label.config(text="Ready - Swipe ID", fg="white")
-        self.swipe_entry.delete(0, tk.END)
-    
-        # DO NOTHING with camera here
+        self.set_message("Ready - Swipe ID", "white")
+        self.controller.swipe_var.set("")
+        self.focus_swipe()
+        self.start_camera()
 
-    # =========================
-    # Camera Initialization
-    # =========================
-    def init_camera(self):
-        if self.camera_active:
-            return
-    
-        success = self.camera.start_camera()
-    
-        if not success:
-            self.show_camera_unavailable()
-        else:
-            self.camera_active = True
-            self.status_label.config(text="Ready - Swipe ID")
-    
-            if not self.camera_loop_running:
-                self.camera_loop_running = True
-                self.update_camera()
+    def set_message(self, text, color="white", success=False):
+        self.message_label.config(text=text, fg=color)
 
-    # =========================
-    # Camera Loop (CRITICAL)
-    # =========================
-    def update_camera(self):
-        if not self.camera_active:
-            return
-    
-        frame = self.camera.get_frame()
-    
-        if frame is not None:
-            frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-            image = Image.fromarray(frame)
-            image = image.resize((500, 350))
-    
-            photo = ImageTk.PhotoImage(image=image)
-    
-            self.camera_label.config(image=photo)
-            self.camera_label.image = photo
-    
-        self.after(30, self.update_camera)
+    def focus_swipe(self):
+        self.swipe_entry.focus_set()
 
-    # =========================
-    # Camera Failure UI
-    # =========================
     def show_camera_unavailable(self):
         self.camera_active = False
+        self.set_message("Camera unavailable", "red")
+        self.camera_label.config(image="", text="", bg="black")
 
-        self.status_label.config(
-            text="Camera unavailable",
-            fg="red"
-        )
+        if self.camera_loop_job is not None:
+            try:
+                self.after_cancel(self.camera_loop_job)
+            except Exception:
+                pass
+            self.camera_loop_job = None
 
-        print("[Screen1] Camera unavailable")
-
-    # =========================
-    # Swipe Handling
-    # =========================
-    def process_swipe(self, event=None):
-        data = self.swipe_entry.get().strip()
-
-        if not data:
+    def start_camera(self):
+        if self.camera_active:
             return
 
-        print(f"[Screen1] Swipe received: {data}")
+        success = self.camera.start_camera()
+        if not success:
+            self.show_camera_unavailable()
+            return
 
-        self.swipe_entry.delete(0, tk.END)
-        self.status_label.config(text="Processing...")
+        self.camera_active = True
+        self._schedule_next_frame()
 
-        # Placeholder logic (replace later)
-        self.after(500, lambda: self.status_label.config(text="Check-in successful"))
+    def stop_camera(self):
+        self.camera_active = False
 
-    # =========================
-    # Cleanup (when leaving screen)
-    # =========================
-def on_hide(self):
-    print("[Screen1] Stopping camera")
+        if self.camera_loop_job is not None:
+            try:
+                self.after_cancel(self.camera_loop_job)
+            except Exception:
+                pass
+            self.camera_loop_job = None
 
-    self.camera_active = False
-    self.camera_loop_running = False
-    self.camera.release()
+        self.camera.release()
+
+    def _schedule_next_frame(self):
+        if not self.camera_active:
+            self.camera_loop_job = None
+            return
+
+        self.update_camera()
+        self.camera_loop_job = self.after(30, self._schedule_next_frame)
+
+    def update_camera(self):
+        frame = self.camera.get_frame()
+
+        if frame is None:
+            return
+
+        try:
+            rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+            image = Image.fromarray(rgb)
+            image = image.resize((640, 360))
+            photo = ImageTk.PhotoImage(image=image)
+
+            self.camera_label.config(image=photo)
+            self.camera_label.image = photo
+        except Exception:
+            self.show_camera_unavailable()
