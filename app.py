@@ -122,6 +122,7 @@ class CheckInApp:
         self.show_frame("Screen2")
 
     def add_user_and_check_in(self):
+        print("ADD USER FUNCTION TRIGGERED")
         screen1 = self.frames["Screen1"]
 
         success, _ = screen1.camera.capture_image_with_face_check(self.pending_name)
