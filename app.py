@@ -1,7 +1,7 @@
 import tkinter as tk
 import os
-import sys
 import subprocess
+import sys
 
 from config import *
 from file_setup import *
@@ -20,9 +20,6 @@ class CheckInApp:
         self.root.title("ID Check-In System")
         self.root.geometry(f"{WINDOW_WIDTH}x{WINDOW_HEIGHT}")
 
-        # =========================
-        # Setup files
-        # =========================
         create_database_if_needed()
         create_terms_file_if_needed()
 
@@ -42,13 +39,12 @@ class CheckInApp:
         self.pending_card_id = None
 
         # =========================
-        # UI container
+        # UI Setup
         # =========================
         self.container = tk.Frame(self.root)
         self.container.pack(fill="both", expand=True)
 
         self.frames = {}
-
         for F in (Screen1, Screen2, Screen3, Screen4):
             frame = F(self.container, self)
             self.frames[F.__name__] = frame
@@ -88,7 +84,7 @@ class CheckInApp:
         tk.Button(win, text="Close", command=win.destroy).pack(pady=10)
 
     # =========================
-    # File Open Helpers (ADMIN)
+    # Open Folders
     # =========================
     def open_csv_folder(self):
         self.open_path(CHECKIN_FOLDER)
@@ -105,10 +101,25 @@ class CheckInApp:
             elif sys.platform == "darwin":
                 subprocess.Popen(["open", path])
         except Exception as e:
-            print("[App] Failed to open path:", e)
+            print(f"[App] Failed to open path: {e}")
 
     # =========================
-    # Swipe Logic
+    # SAFE QUIT (FIXED)
+    # =========================
+    def safe_quit_program(self):
+        print("[App] Safe shutdown initiated")
+
+        try:
+            screen1 = self.frames.get("Screen1")
+            if screen1:
+                screen1.stop_camera()
+        except Exception as e:
+            print(f"[App] Camera shutdown error: {e}")
+
+        self.root.destroy()
+
+    # =========================
+    # Swipe Handling
     # =========================
     def process_swipe_from_screen1(self):
         screen1 = self.frames["Screen1"]
@@ -143,7 +154,7 @@ class CheckInApp:
         student = find_student_in_database(card_id)
 
         # =========================
-        # Existing user
+        # EXISTING USER
         # =========================
         if student:
             success, path = screen1.camera.capture_image_with_face_check(student["Name"])
@@ -162,12 +173,17 @@ class CheckInApp:
 
             print("Saved:", path)
 
-            screen1.set_message(f"{student['Name']} checked in.", "green")
+            # ✅ PHOTO CONFIRMATION
+            screen1.set_message("Photo captured", "cyan")
+            self.root.after(800, lambda:
+                screen1.set_message(f"{student['Name']} checked in.", "green")
+            )
+
             self.swipe_var.set("")
             return
 
         # =========================
-        # New user
+        # NEW USER
         # =========================
         self.pending_name = name
         self.pending_card_id = card_id
@@ -175,7 +191,7 @@ class CheckInApp:
         self.show_frame("Screen2")
 
     # =========================
-    # Add New User
+    # Add User
     # =========================
     def add_user_and_check_in(self):
         screen1 = self.frames["Screen1"]
@@ -232,8 +248,6 @@ class CheckInApp:
         print("Saved:", path)
 
         name = self.pending_name
-
-        # Reset state
         self.pending_name = None
         self.pending_card_id = None
 
@@ -243,8 +257,11 @@ class CheckInApp:
         self.mymdc_username_var.set("")
         self.email_var.set("")
 
-        self.show_frame("Screen1")
-        screen1.set_message(f"{name} added and checked in.", "green")
+        # ✅ PHOTO CONFIRMATION
+        screen1.set_message("Photo captured", "cyan")
+        self.root.after(800, lambda:
+            screen1.set_message(f"{name} added and checked in.", "green")
+        )
 
     # =========================
     # Admin Login
