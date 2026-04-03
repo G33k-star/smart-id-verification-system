@@ -105,19 +105,14 @@ class Screen1(tk.Frame):
     def update_camera(self):
         if not self.camera_active:
             return
-
+    
         frame = self.camera.get_frame()
-
+    
         if frame is not None:
-            frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-            image = Image.fromarray(frame)
-            image = image.resize((500, 350))
-
-            photo = ImageTk.PhotoImage(image=image)
-
-            self.camera_label.config(image=photo)
-            self.camera_label.image = photo
-
+            # render frame
+            ...
+    
+        # ALWAYS continue loop
         self.after(30, self.update_camera)
 
     # =========================
