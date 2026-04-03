@@ -121,74 +121,74 @@ class CheckInApp:
         self.pending_card_id = card_id
         self.show_frame("Screen2")
 
-   def add_user_and_check_in(self):
-    screen1 = self.frames["Screen1"]
-    screen2 = self.frames["Screen2"]
-
-    sid = self.student_var.get().strip()
-    phone = self.phone_var.get().strip()
-    username = self.mymdc_username_var.get().strip()
-
-    # ===== ONLY CHANGE: remove blocking validation =====
-    if not valid_student_id(sid):
-        screen2.set_message("Invalid Student ID", "red")
-
-    if not valid_phone_number(phone):
-        screen2.set_message("Invalid phone number", "red")
-
-    if not valid_mymdc_username(username):
-        screen2.set_message("Invalid username", "red")
-
-    # Continue regardless (this is the fix)
-    phone = normalize_phone_number(phone)
-    username, email = build_mymdc_email(username)
-    self.email_var.set(email)
-
-    # Go back to camera screen
-    self.show_frame("Screen1")
-    screen1 = self.frames["Screen1"]
-
-    success, path = screen1.camera.capture_image_with_face_check(self.pending_name)
-
-    if not success:
-        screen1.set_message("Camera error.", "red")
-        return
-
-    # Save user
-    add_student_to_database(
-        self.pending_name,
-        self.pending_card_id,
-        sid,
-        phone,
-        username,
-        email
-    )
-
-    # Save check-in
-    checkin_file = get_today_checkin_file()
-    create_checkin_file_if_needed(checkin_file)
-
-    save_checkin(
-        checkin_file,
-        self.pending_name,
-        self.pending_card_id,
-        sid,
-        phone
-    )
-
-    name = self.pending_name
-    self.pending_name = None
-    self.pending_card_id = None
-
-    # Clear inputs
-    self.student_var.set("")
-    self.phone_var.set("")
-    self.mymdc_username_var.set("")
-    self.email_var.set("")
-
-    # Final message
-    self.show_frame("Screen1")
-    screen1.set_message(f"{name} added and checked in.", "green")
+def add_user_and_check_in(self):
+        screen1 = self.frames["Screen1"]
+        screen2 = self.frames["Screen2"]
+    
+        sid = self.student_var.get().strip()
+        phone = self.phone_var.get().strip()
+        username = self.mymdc_username_var.get().strip()
+    
+        # ===== ONLY CHANGE: remove blocking validation =====
+        if not valid_student_id(sid):
+            screen2.set_message("Invalid Student ID", "red")
+    
+        if not valid_phone_number(phone):
+            screen2.set_message("Invalid phone number", "red")
+    
+        if not valid_mymdc_username(username):
+            screen2.set_message("Invalid username", "red")
+    
+        # Continue regardless (this is the fix)
+        phone = normalize_phone_number(phone)
+        username, email = build_mymdc_email(username)
+        self.email_var.set(email)
+    
+        # Go back to camera screen
+        self.show_frame("Screen1")
+        screen1 = self.frames["Screen1"]
+    
+        success, path = screen1.camera.capture_image_with_face_check(self.pending_name)
+    
+        if not success:
+            screen1.set_message("Camera error.", "red")
+            return
+    
+        # Save user
+        add_student_to_database(
+            self.pending_name,
+            self.pending_card_id,
+            sid,
+            phone,
+            username,
+            email
+        )
+    
+        # Save check-in
+        checkin_file = get_today_checkin_file()
+        create_checkin_file_if_needed(checkin_file)
+    
+        save_checkin(
+            checkin_file,
+            self.pending_name,
+            self.pending_card_id,
+            sid,
+            phone
+        )
+    
+        name = self.pending_name
+        self.pending_name = None
+        self.pending_card_id = None
+    
+        # Clear inputs
+        self.student_var.set("")
+        self.phone_var.set("")
+        self.mymdc_username_var.set("")
+        self.email_var.set("")
+    
+        # Final message
+        self.show_frame("Screen1")
+        screen1.set_message(f"{name} added and checked in.", "green")
 
     def check_admin_credentials(self):
         if self.admin_user_var.get() == ADMIN_USERNAME and self.admin_pass_var.get() == ADMIN_PASSWORD:
