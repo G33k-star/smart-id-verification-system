@@ -1,0 +1,7 @@
+Future Improvements:
+- Applied ML and Computer Vision
+- Restrict keys (control, alt, windows) through software. 
+	If such methods don't work, physically restrict the keys.
+- Enable AutoStart and screen lock on Pi
+- Disable screen sleep and screen lock
+
