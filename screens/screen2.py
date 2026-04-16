@@ -41,7 +41,8 @@ class Screen2(tk.Frame):
         form.pack(pady=15)
 
         tk.Label(form, text="Student ID:", bg="white", fg="black").grid(row=0, column=0, pady=5, sticky="e")
-        tk.Entry(form, textvariable=controller.student_var, width=30).grid(row=0, column=1, pady=5)
+        self.student_entry = tk.Entry(form, textvariable=controller.student_var, width=30)
+        self.student_entry.grid(row=0, column=1, pady=5)
 
         tk.Label(form, text="Phone Number:", bg="white", fg="black").grid(row=1, column=0, pady=5, sticky="e")
         tk.Entry(form, textvariable=controller.phone_var, width=30).grid(row=1, column=1, pady=5)
@@ -63,7 +64,7 @@ class Screen2(tk.Frame):
                   command=controller.add_user_and_check_in).grid(row=0, column=0, padx=10)
 
         tk.Button(btn_frame, text="Cancel", width=15,
-                  command=lambda: controller.show_frame("Screen1")).grid(row=0, column=1, padx=10)
+                  command=controller.cancel_new_user_flow).grid(row=0, column=1, padx=10)
 
     def reset_screen(self):
         self.clear_fields()
@@ -72,6 +73,9 @@ class Screen2(tk.Frame):
 
     def set_message(self, text, color="black"):
         self.message_label.config(text=text, fg=color)
+
+    def get_primary_focus_widget(self):
+        return self.student_entry
 
     def set_status(self, text, color="black"):
         self.status_label.config(text=text, fg=color)

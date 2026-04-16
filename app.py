@@ -3,13 +3,15 @@ import os
 import subprocess
 import sys
 
+from cam import CameraManager
+from capture_session import CaptureService
 from config import (
     WINDOW_WIDTH,
     WINDOW_HEIGHT,
     ADMIN_USERNAME,
     ADMIN_PASSWORD,
-    CHECKIN_FOLDER,
-    DATABASE_FOLDER
+    DATA_CHECKINS_FOLDER,
+    DATA_STUDENTS_FOLDER
 )
 
 from file_setup import (
@@ -60,14 +62,20 @@ def apply_kiosk_window(window, fullscreen=True):
 
 
 class CheckInApp:
+    FOCUS_RETRY_MS = 150
+
     def __init__(self, root):
         self.root = root
         self.root.title("ID Check-In System")
         self.root.geometry(f"{WINDOW_WIDTH}x{WINDOW_HEIGHT}")
         self.root.configure(bg="white")
+        self.active_screen_name = None
 
         create_database_if_needed()
         create_terms_file_if_needed()
+
+        self.camera_manager = CameraManager()
+        self.capture_service = CaptureService(self.camera_manager)
 
         # Variables
         self.swipe_var = tk.StringVar()
@@ -92,37 +100,73 @@ class CheckInApp:
             self.frames[FrameClass.__name__] = frame
             frame.place(relwidth=1, relheight=1)
 
+        self.root.bind("<FocusIn>", self._handle_root_focus_in, add="+")
         self.show_frame("Screen1")
 
     # -------------------------
     # Navigation
     # -------------------------
     def show_frame(self, name):
-        screen1 = self.frames["Screen1"]
-
-        if name != "Screen1":
-            screen1.stop_camera()
-
         frame = self.frames[name]
+        self.active_screen_name = name
         frame.tkraise()
 
         if hasattr(frame, "reset_screen"):
             frame.reset_screen()
 
+        self.restore_active_focus()
+
+    def get_active_primary_focus_widget(self):
+        frame = self.frames.get(self.active_screen_name)
+        if not frame:
+            return None
+
+        getter = getattr(frame, "get_primary_focus_widget", None)
+        if not getter:
+            return None
+
+        return getter()
+
+    def restore_active_focus(self):
+        widget = self.get_active_primary_focus_widget()
+        if not widget:
+            return
+
+        self.root.after_idle(lambda: self._focus_widget(widget))
+        self.root.after(
+            self.FOCUS_RETRY_MS,
+            lambda: self._focus_widget(widget)
+        )
+
+    def _focus_widget(self, widget):
+        try:
+            if widget and widget.winfo_exists() and widget.winfo_viewable():
+                widget.focus_set()
+        except tk.TclError:
+            pass
+
+    def _handle_root_focus_in(self, event):
+        if event.widget is self.root:
+            self.restore_active_focus()
+
     # -------------------------
     # System Functions
     # -------------------------
+    def ensure_camera_running(self):
+        return self.capture_service.start_camera()
+
+    def is_camera_running(self):
+        return self.capture_service.is_camera_running()
+
     def safe_quit_program(self):
-        screen1 = self.frames.get("Screen1")
-        if screen1:
-            screen1.stop_camera()
+        self.capture_service.stop_camera()
         self.root.destroy()
 
     def open_csv_folder(self):
-        self.open_path(CHECKIN_FOLDER)
+        self.open_path(DATA_CHECKINS_FOLDER)
 
     def open_database_folder(self):
-        self.open_path(DATABASE_FOLDER)
+        self.open_path(DATA_STUDENTS_FOLDER)
 
     def open_path(self, path):
         try:
@@ -148,7 +192,13 @@ class CheckInApp:
         win.resizable(False, False)
         win.lift()
         win.focus_set()
-        win.protocol("WM_DELETE_WINDOW", win.destroy)
+
+        def close_terms_window():
+            if win.winfo_exists():
+                win.destroy()
+            self.restore_active_focus()
+
+        win.protocol("WM_DELETE_WINDOW", close_terms_window)
 
         text = tk.Text(win, wrap="word")
         text.pack(fill="both", expand=True, padx=10, pady=10)
@@ -156,7 +206,7 @@ class CheckInApp:
         text.insert("1.0", get_terms_text())
         text.config(state="disabled")
 
-        tk.Button(win, text="Close", command=win.destroy).pack(pady=10)
+        tk.Button(win, text="Close", command=close_terms_window).pack(pady=10)
 
     # -------------------------
     # Swipe Logic
@@ -185,17 +235,18 @@ class CheckInApp:
             self.swipe_var.set("")
             return
 
-        if not screen1.camera_active:
+        if not self.is_camera_running():
             screen1.set_message("Camera unavailable.", "red")
             return
 
         screen1.set_message("Processing...", "blue")
+        self.root.update_idletasks()
 
         student = find_student_in_database(card_id)
 
         # Existing user
         if student:
-            success, path = screen1.camera.capture_image_with_face_check(student["Name"])
+            success, path, metrics = self.capture_service.capture_known_user(student["Name"])
 
             if not success:
                 screen1.set_message("Camera error.", "red")
@@ -210,6 +261,8 @@ class CheckInApp:
             )
 
             print("Saved:", path)
+            if metrics:
+                print("[Capture] Known-user best score:", round(metrics.total_score, 3))
 
             screen1.set_message(f"{student['Name']} checked in.", "green")
             self.swipe_var.set("")
@@ -218,6 +271,11 @@ class CheckInApp:
         # New user
         self.pending_name = name
         self.pending_card_id = card_id
+        if not self.capture_service.start_enrollment_session():
+            self.pending_name = None
+            self.pending_card_id = None
+            screen1.set_message("Camera unavailable.", "red")
+            return
         self.show_frame("Screen2")
 
     # -------------------------
@@ -243,13 +301,12 @@ class CheckInApp:
 
         phone = normalize_phone_number(phone)
         username, email = build_mymdc_email(username)
-
-        self.show_frame("Screen1")
-        screen1 = self.frames["Screen1"]
-
-        success, path = screen1.camera.capture_image_with_face_check(self.pending_name)
+        success, path, metrics = self.capture_service.finalize_enrollment_capture(self.pending_name)
 
         if not success:
+            self.pending_name = None
+            self.pending_card_id = None
+            self.show_frame("Screen1")
             screen1.set_message("Camera error.", "red")
             return
 
@@ -266,6 +323,8 @@ class CheckInApp:
             student_id=sid,
             signed_name=self.pending_name
         )
+        if metrics:
+            print("[Capture] Enrollment best score:", round(metrics.total_score, 3))
 
         checkin_file = get_today_checkin_file()
         create_checkin_file_if_needed(checkin_file)
@@ -289,6 +348,15 @@ class CheckInApp:
 
         self.show_frame("Screen1")
         screen1.set_message(f"{name} added and checked in.", "green")
+
+    def cancel_new_user_flow(self):
+        self.capture_service.cancel_enrollment_session()
+        self.pending_name = None
+        self.pending_card_id = None
+        self.student_var.set("")
+        self.phone_var.set("")
+        self.mymdc_username_var.set("")
+        self.show_frame("Screen1")
 
     # -------------------------
     # Admin Login

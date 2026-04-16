@@ -47,6 +47,23 @@ class CameraManager:
         with self.lock:
             return self.frame.copy() if self.frame is not None else None
 
+    def save_frame(self, person_name, frame, output_folder=None):
+        if frame is None:
+            return False, None
+
+        output_folder = output_folder or PHOTO_FOLDER
+        today_folder = os.path.join(output_folder, datetime.now().strftime("%Y-%m-%d"))
+        os.makedirs(today_folder, exist_ok=True)
+
+        safe_name = person_name.replace(" ", "_")
+        filename = f"{safe_name}_{datetime.now().strftime('%H-%M-%S')}.jpg"
+        path = os.path.join(today_folder, filename)
+
+        if not cv2.imwrite(path, frame):
+            return False, None
+
+        return True, path
+
     def release(self):
         self.running = False
 
@@ -59,17 +76,4 @@ class CameraManager:
 
     def capture_image_with_face_check(self, person_name, output_folder=None):
         frame = self.get_frame()
-
-        if frame is None:
-            return False, None
-
-        output_folder = output_folder or PHOTO_FOLDER
-        today_folder = os.path.join(output_folder, datetime.now().strftime("%Y-%m-%d"))
-        os.makedirs(today_folder, exist_ok=True)
-
-        safe_name = person_name.replace(" ", "_")
-        filename = f"{safe_name}_{datetime.now().strftime('%H-%M-%S')}.jpg"
-        path = os.path.join(today_folder, filename)
-
-        cv2.imwrite(path, frame)
-        return True, path
+        return self.save_frame(person_name, frame, output_folder)

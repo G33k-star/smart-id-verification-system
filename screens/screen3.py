@@ -47,10 +47,9 @@ class Screen3(tk.Frame):
         self.controller.admin_user_var.set("")
         self.controller.admin_pass_var.set("")
         self.set_message("")
-        self.focus_username()
 
     def set_message(self, text):
         self.message_label.config(text=text)
 
-    def focus_username(self):
-        self.username_entry.focus_set()
+    def get_primary_focus_widget(self):
+        return self.username_entry

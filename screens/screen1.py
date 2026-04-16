@@ -1,5 +1,4 @@
 import tkinter as tk
-from cam import CameraManager
 
 
 class Screen1(tk.Frame):
@@ -7,8 +6,6 @@ class Screen1(tk.Frame):
         super().__init__(parent, bg="white")
 
         self.controller = controller
-        self.camera = CameraManager()
-        self.camera_active = False
 
         # Title
         tk.Label(
@@ -65,24 +62,14 @@ class Screen1(tk.Frame):
         ).pack(side="bottom", pady=10)
 
     def reset_screen(self):
-        self.set_message("Ready - Swipe ID")
         self.controller.swipe_var.set("")
-        self.focus_swipe()
-        self.start_camera()
+        if self.controller.ensure_camera_running():
+            self.set_message("Ready - Swipe ID")
+        else:
+            self.set_message("Camera unavailable", "red")
 
     def set_message(self, text, color="black"):
         self.message_label.config(text=text, fg=color)
 
-    def focus_swipe(self):
-        self.swipe_entry.focus_set()
-
-    def start_camera(self):
-        if not self.camera_active:
-            if self.camera.start_camera():
-                self.camera_active = True
-            else:
-                self.set_message("Camera unavailable", "red")
-
-    def stop_camera(self):
-        self.camera_active = False
-        self.camera.release()
+    def get_primary_focus_widget(self):
+        return self.swipe_entry

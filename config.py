@@ -2,23 +2,39 @@ import os
 
 PROJECT_ROOT = os.path.dirname(os.path.abspath(__file__))
 
-DATABASE_FOLDER = os.path.join(PROJECT_ROOT, "database_folder")
-DATABASE_FILE = os.path.join(DATABASE_FOLDER, "database.csv")
+ASSETS_FOLDER = os.path.join(PROJECT_ROOT, "assets")
+ASSETS_CONTRACTS_FOLDER = os.path.join(ASSETS_FOLDER, "contracts")
+ASSETS_TEXT_FOLDER = os.path.join(ASSETS_FOLDER, "text")
+
+DATA_FOLDER = os.path.join(PROJECT_ROOT, "data")
+DATA_STUDENTS_FOLDER = os.path.join(DATA_FOLDER, "students")
+DATA_CHECKINS_FOLDER = os.path.join(DATA_FOLDER, "checkins")
+DATA_PHOTOS_FOLDER = os.path.join(DATA_FOLDER, "photos")
+DATA_PHOTOS_CHECKINS_FOLDER = os.path.join(DATA_PHOTOS_FOLDER, "checkins")
+DATA_CONTRACTS_FOLDER = os.path.join(DATA_FOLDER, "contracts")
+DATA_CONTRACTS_SIGNED_FOLDER = os.path.join(DATA_CONTRACTS_FOLDER, "signed")
+
+DATABASE_FILE = os.path.join(DATA_STUDENTS_FOLDER, "database.csv")
 BEHAVIORAL_CONTRACT_TEMPLATE = os.path.join(
-    DATABASE_FOLDER,
+    ASSETS_CONTRACTS_FOLDER,
+    "Robotics Lab Behavioral Contract 2026.pdf"
+)
+BEHAVIORAL_CONTRACT_SIGNED_FOLDER = DATA_CONTRACTS_SIGNED_FOLDER
+
+CHECKIN_FOLDER = DATA_CHECKINS_FOLDER
+TERMS_FILE = os.path.join(ASSETS_TEXT_FOLDER, "terms_and_conditions.txt")
+PHOTO_FOLDER = DATA_PHOTOS_CHECKINS_FOLDER
+
+LEGACY_DATABASE_FOLDER = os.path.join(PROJECT_ROOT, "database_folder")
+LEGACY_DATABASE_FILE = os.path.join(LEGACY_DATABASE_FOLDER, "database.csv")
+LEGACY_BEHAVIORAL_CONTRACT_TEMPLATE = os.path.join(
+    LEGACY_DATABASE_FOLDER,
     "behavioral contract",
     "Robotics Lab Behavioral Contract 2026.pdf"
 )
-BEHAVIORAL_CONTRACT_SIGNED_FOLDER = os.path.join(
-    PROJECT_ROOT,
-    "database",
-    "behavioral contract",
-    "signed contracts"
-)
-
-CHECKIN_FOLDER = os.path.join(PROJECT_ROOT, "checkin_logs")
-TERMS_FILE = os.path.join(PROJECT_ROOT, "terms_and_conditions.txt")
-PHOTO_FOLDER = os.path.join(PROJECT_ROOT, "checkin_photos")
+LEGACY_CHECKIN_FOLDER = os.path.join(PROJECT_ROOT, "checkin_logs")
+LEGACY_TERMS_FILE = os.path.join(PROJECT_ROOT, "terms_and_conditions.txt")
+LEGACY_PHOTO_FOLDER = os.path.join(PROJECT_ROOT, "checkin_photos")
 
 ADMIN_USERNAME = "admin" # PLEASE CHANGE (Look in "System Info" file)
 ADMIN_PASSWORD = "admin1234" # PLEASE CHANGE (Look in "System Info" file)
