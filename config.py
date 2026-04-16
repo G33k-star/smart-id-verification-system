@@ -2,6 +2,16 @@ import os
 
 DATABASE_FOLDER = "database_folder"
 DATABASE_FILE = os.path.join(DATABASE_FOLDER, "database.csv")
+BEHAVIORAL_CONTRACT_TEMPLATE = os.path.join(
+    DATABASE_FOLDER,
+    "behavioral contract",
+    "Robotics Lab Behavioral Contract 2026.pdf"
+)
+BEHAVIORAL_CONTRACT_SIGNED_FOLDER = os.path.join(
+    "database",
+    "behavioral contract",
+    "signed contracts"
+)
 
 CHECKIN_FOLDER = "checkin_logs"
 TERMS_FILE = "terms_and_conditions.txt"

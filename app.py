@@ -35,6 +35,7 @@ from data_service import (
     already_checked_in_today,
     save_checkin
 )
+from contract_service import generate_behavioral_contract
 
 from screens.screen1 import Screen1
 from screens.screen2 import Screen2
@@ -261,6 +262,11 @@ class CheckInApp:
             phone,
             username,
             email
+        )
+        generate_behavioral_contract(
+            student_name=self.pending_name,
+            student_id=sid,
+            signed_name=self.pending_name
         )
 
         checkin_file = get_today_checkin_file()
