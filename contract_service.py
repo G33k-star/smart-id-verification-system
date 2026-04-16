@@ -114,6 +114,9 @@ def generate_behavioral_contract(student_name, student_id, signed_name=None):
     try:
         output_dir.mkdir(parents=True, exist_ok=True)
 
+        if not template_path.exists():
+            raise FileNotFoundError("Contract template not found: {0}".format(template_path))
+
         reader = PdfReader(str(template_path))
         overlay_pdf = BytesIO(
             _build_overlay(student_name, student_id, signed_name, contract_date)
@@ -132,4 +135,6 @@ def generate_behavioral_contract(student_name, student_id, signed_name=None):
         return output_path
     except Exception as exc:
         print("[Contract] Failed to generate signed contract:", exc)
+        print("[Contract] Template path:", template_path)
+        print("[Contract] Output directory:", output_dir)
         return None

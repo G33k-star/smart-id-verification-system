@@ -3,6 +3,7 @@ import cv2
 import threading
 import time
 from datetime import datetime
+from config import PHOTO_FOLDER
 
 
 class CameraManager:
@@ -56,12 +57,13 @@ class CameraManager:
             self.cap.release()
             self.cap = None
 
-    def capture_image_with_face_check(self, person_name, output_folder="checkin_photos"):
+    def capture_image_with_face_check(self, person_name, output_folder=None):
         frame = self.get_frame()
 
         if frame is None:
             return False, None
 
+        output_folder = output_folder or PHOTO_FOLDER
         today_folder = os.path.join(output_folder, datetime.now().strftime("%Y-%m-%d"))
         os.makedirs(today_folder, exist_ok=True)
 

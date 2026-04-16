@@ -48,8 +48,6 @@ def apply_kiosk_window(window, fullscreen=True):
     window.withdraw()
     window.overrideredirect(True)
     window.attributes("-topmost", True)
-    window.option_add("*cursor", "none")
-    window.configure(cursor="none")
 
     if fullscreen:
         width = window.winfo_screenwidth()
@@ -59,7 +57,6 @@ def apply_kiosk_window(window, fullscreen=True):
 
     window.deiconify()
     window.lift()
-    window.focus_force()
 
 
 class CheckInApp:
@@ -77,7 +74,6 @@ class CheckInApp:
         self.student_var = tk.StringVar()
         self.phone_var = tk.StringVar()
         self.mymdc_username_var = tk.StringVar()
-        self.email_var = tk.StringVar()
 
         self.admin_user_var = tk.StringVar()
         self.admin_pass_var = tk.StringVar()
@@ -147,9 +143,12 @@ class CheckInApp:
         x = (self.root.winfo_screenwidth() - width) // 2
         y = (self.root.winfo_screenheight() - height) // 2
         win.geometry(f"{width}x{height}+{x}+{y}")
-        apply_kiosk_window(win, fullscreen=False)
         win.transient(self.root)
-        win.grab_set()
+        win.attributes("-topmost", True)
+        win.resizable(False, False)
+        win.lift()
+        win.focus_set()
+        win.protocol("WM_DELETE_WINDOW", win.destroy)
 
         text = tk.Text(win, wrap="word")
         text.pack(fill="both", expand=True, padx=10, pady=10)
@@ -244,7 +243,6 @@ class CheckInApp:
 
         phone = normalize_phone_number(phone)
         username, email = build_mymdc_email(username)
-        self.email_var.set(email)
 
         self.show_frame("Screen1")
         screen1 = self.frames["Screen1"]
@@ -287,7 +285,6 @@ class CheckInApp:
         self.student_var.set("")
         self.phone_var.set("")
         self.mymdc_username_var.set("")
-        self.email_var.set("")
         self.swipe_var.set("")
 
         self.show_frame("Screen1")

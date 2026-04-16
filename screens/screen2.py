@@ -48,9 +48,12 @@ class Screen2(tk.Frame):
 
         tk.Label(form, text="myMDC Username:", bg="white", fg="black").grid(row=2, column=0, pady=5, sticky="e")
         tk.Entry(form, textvariable=controller.mymdc_username_var, width=30).grid(row=2, column=1, pady=5)
-
-        tk.Label(form, text="Email:", bg="white", fg="black").grid(row=3, column=0, pady=5, sticky="e")
-        tk.Entry(form, textvariable=controller.email_var, width=30, state="readonly").grid(row=3, column=1, pady=5)
+        tk.Label(
+            form,
+            text="Example: john.smith001",
+            bg="white",
+            fg="gray"
+        ).grid(row=3, column=1, sticky="w")
 
         # Buttons
         btn_frame = tk.Frame(self, bg="white")
@@ -80,4 +83,3 @@ class Screen2(tk.Frame):
         self.controller.student_var.set("")
         self.controller.phone_var.set("")
         self.controller.mymdc_username_var.set("")
-        self.controller.email_var.set("")
