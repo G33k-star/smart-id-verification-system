@@ -42,6 +42,25 @@ from screens.screen3 import Screen3
 from screens.screen4 import Screen4
 
 
+def apply_kiosk_window(window, fullscreen=True):
+    window.update_idletasks()
+    window.withdraw()
+    window.overrideredirect(True)
+    window.attributes("-topmost", True)
+    window.option_add("*cursor", "none")
+    window.configure(cursor="none")
+
+    if fullscreen:
+        width = window.winfo_screenwidth()
+        height = window.winfo_screenheight()
+        window.geometry(f"{width}x{height}+0+0")
+        window.attributes("-fullscreen", True)
+
+    window.deiconify()
+    window.lift()
+    window.focus_force()
+
+
 class CheckInApp:
     def __init__(self, root):
         self.root = root
@@ -122,7 +141,14 @@ class CheckInApp:
     def open_terms_window(self):
         win = tk.Toplevel(self.root)
         win.title("Terms and Conditions")
-        win.geometry("600x400")
+        width = 600
+        height = 400
+        x = (self.root.winfo_screenwidth() - width) // 2
+        y = (self.root.winfo_screenheight() - height) // 2
+        win.geometry(f"{width}x{height}+{x}+{y}")
+        apply_kiosk_window(win, fullscreen=False)
+        win.transient(self.root)
+        win.grab_set()
 
         text = tk.Text(win, wrap="word")
         text.pack(fill="both", expand=True, padx=10, pady=10)
