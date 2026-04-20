@@ -249,11 +249,14 @@ class CheckInApp:
             self._end_processing()
             return
 
+        student = find_student_in_database(card_id)
+        canonical_name = student["Name"] if student else name
+
         checkin_file = get_today_checkin_file()
         create_checkin_file_if_needed(checkin_file)
 
         if already_checked_in_today(checkin_file, card_id):
-            self._set_main_status(f"{name} already checked in.", "orange", auto_clear=True)
+            self._set_main_status(f"{canonical_name} already checked in.", "orange", auto_clear=True)
             self.swipe_var.set("")
             self._end_processing()
             return
@@ -272,7 +275,6 @@ class CheckInApp:
             self._end_processing()
             return
 
-        student = find_student_in_database(card_id)
         if student:
             self.swipe_var.set("")
             threading.Thread(
@@ -282,7 +284,7 @@ class CheckInApp:
             ).start()
             return
 
-        self.pending_name = name
+        self.pending_name = canonical_name
         self.pending_card_id = card_id
 
         if not self.capture_service.start_enrollment_session(event_capture):

@@ -147,5 +147,6 @@ If the event window does not produce a candidate, the app falls back to the orig
 - The app keeps the cursor visible.
 - Startup uses a plain Tk root window on X11/Linux and avoids `withdraw()` / `deiconify()` / `overrideredirect()` remap tricks.
 - The app does not hard-lock keyboard shortcuts.
+- Cardholder names are parsed from Track 1 only and normalized to canonical `First Middle Last` form for saved outputs.
 - Main-screen success/error messages auto-reset after a short timeout.
 - The camera is released on quit.
