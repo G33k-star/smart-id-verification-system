@@ -1,62 +1,108 @@
 import tkinter as tk
 
+from config import (
+    ACCENT_TEXT_COLOR,
+    APP_BACKGROUND_COLOR,
+    BODY_FONT,
+    BUTTON_FONT,
+    DETAIL_FONT,
+    INPUT_BACKGROUND_COLOR,
+    INPUT_FONT,
+    PANEL_BACKGROUND_COLOR,
+    PANEL_BORDER_COLOR,
+    PRIMARY_TEXT_COLOR,
+    SCREEN_TITLE_FONT,
+    SECONDARY_TEXT_COLOR,
+)
+
 
 class Screen2(tk.Frame):
     def __init__(self, parent, controller):
-        super().__init__(parent, bg="white")
+        super().__init__(parent, bg=APP_BACKGROUND_COLOR)
 
         self.controller = controller
 
-        self.title_label = tk.Label(
-            self,
-            text="Registration",
-            font=("Arial", 22),
-            fg="black",
-            bg="white"
+        content = tk.Frame(self, bg=APP_BACKGROUND_COLOR)
+        content.pack(expand=True)
+
+        panel = tk.Frame(
+            content,
+            bg=PANEL_BACKGROUND_COLOR,
+            bd=1,
+            relief="solid",
+            highlightbackground=PANEL_BORDER_COLOR,
+            highlightcolor=PANEL_BORDER_COLOR,
+            highlightthickness=1,
+            padx=42,
+            pady=34
         )
-        self.title_label.pack(pady=15)
+        panel.pack()
+
+        self.title_label = tk.Label(
+            panel,
+            text="Registration",
+            font=SCREEN_TITLE_FONT,
+            fg=PRIMARY_TEXT_COLOR,
+            bg=PANEL_BACKGROUND_COLOR
+        )
+        self.title_label.pack(pady=(0, 12))
 
         self.message_label = tk.Label(
-            self,
+            panel,
             text="",
-            font=("Arial", 14),
-            fg="black",
-            bg="white",
+            font=DETAIL_FONT,
+            fg=ACCENT_TEXT_COLOR,
+            bg=PANEL_BACKGROUND_COLOR,
             wraplength=760,
             justify="center"
         )
-        self.message_label.pack(pady=5)
+        self.message_label.pack(pady=(0, 18))
 
-        form = tk.Frame(self, bg="white")
-        form.pack(pady=15)
+        form = tk.Frame(panel, bg=PANEL_BACKGROUND_COLOR)
+        form.pack(pady=(0, 24))
 
-        tk.Label(form, text="Full Name:", bg="white", fg="black").grid(row=0, column=0, pady=5, sticky="e")
-        self.name_entry = tk.Entry(form, textvariable=controller.name_var, width=30)
-        self.name_entry.grid(row=0, column=1, pady=5)
+        self.name_entry = self._build_labeled_entry(
+            form,
+            row=0,
+            label_text="Full Name",
+            textvariable=controller.name_var
+        )
+        self.student_entry = self._build_labeled_entry(
+            form,
+            row=1,
+            label_text="Student ID",
+            textvariable=controller.student_var
+        )
+        self.phone_entry = self._build_labeled_entry(
+            form,
+            row=2,
+            label_text="Phone Number",
+            textvariable=controller.phone_var
+        )
+        self.username_entry = self._build_labeled_entry(
+            form,
+            row=3,
+            label_text="myMDC Username",
+            textvariable=controller.mymdc_username_var
+        )
 
-        tk.Label(form, text="Student ID:", bg="white", fg="black").grid(row=1, column=0, pady=5, sticky="e")
-        self.student_entry = tk.Entry(form, textvariable=controller.student_var, width=30)
-        self.student_entry.grid(row=1, column=1, pady=5)
-
-        tk.Label(form, text="Phone Number:", bg="white", fg="black").grid(row=2, column=0, pady=5, sticky="e")
-        tk.Entry(form, textvariable=controller.phone_var, width=30).grid(row=2, column=1, pady=5)
-
-        tk.Label(form, text="myMDC Username:", bg="white", fg="black").grid(row=3, column=0, pady=5, sticky="e")
-        tk.Entry(form, textvariable=controller.mymdc_username_var, width=30).grid(row=3, column=1, pady=5)
         tk.Label(
             form,
             text="Example: john.smith001",
-            bg="white",
-            fg="gray"
-        ).grid(row=4, column=1, sticky="w")
+            font=DETAIL_FONT,
+            fg=SECONDARY_TEXT_COLOR,
+            bg=PANEL_BACKGROUND_COLOR
+        ).grid(row=4, column=1, sticky="w", pady=(2, 0))
 
-        btn_frame = tk.Frame(self, bg="white")
-        btn_frame.pack(pady=20)
+        btn_frame = tk.Frame(panel, bg=PANEL_BACKGROUND_COLOR)
+        btn_frame.pack()
 
         self.primary_button = tk.Button(
             btn_frame,
             text="Continue",
-            width=18,
+            font=BUTTON_FONT,
+            width=16,
+            height=2,
             command=controller.submit_registration_form
         )
         self.primary_button.grid(row=0, column=0, padx=10)
@@ -64,9 +110,34 @@ class Screen2(tk.Frame):
         tk.Button(
             btn_frame,
             text="Cancel",
-            width=18,
+            font=BUTTON_FONT,
+            width=16,
+            height=2,
             command=controller.cancel_new_user_flow
         ).grid(row=0, column=1, padx=10)
+
+    def _build_labeled_entry(self, parent, row, label_text, textvariable):
+        tk.Label(
+            parent,
+            text=label_text,
+            font=BODY_FONT,
+            fg=PRIMARY_TEXT_COLOR,
+            bg=PANEL_BACKGROUND_COLOR
+        ).grid(row=row, column=0, sticky="e", padx=(0, 16), pady=10)
+
+        entry = tk.Entry(
+            parent,
+            textvariable=textvariable,
+            font=INPUT_FONT,
+            width=26,
+            bg=INPUT_BACKGROUND_COLOR,
+            fg=PRIMARY_TEXT_COLOR,
+            relief="solid",
+            bd=1,
+            insertwidth=3
+        )
+        entry.grid(row=row, column=1, sticky="w", ipady=8, pady=10)
+        return entry
 
     def reset_screen(self):
         context = self.controller.registration_context
@@ -76,16 +147,16 @@ class Screen2(tk.Frame):
             self.title_label.config(text="Register / Check In Without Card")
             self.primary_button.config(text="Continue")
             self.set_message(
-                "Use your Student ID and myMDC username to register or check in without a card."
+                "Enter your information to register or check in without using a card."
             )
         else:
             self.title_label.config(text="Complete Registration")
             self.primary_button.config(text="Continue")
             self.set_message(
-                "Card not recognized yet. Review your information to register or link a pre-registered record."
+                "Review your information below to register or link a pre-registered record."
             )
 
-    def set_message(self, text, color="black"):
+    def set_message(self, text, color=ACCENT_TEXT_COLOR):
         self.message_label.config(text=text, fg=color)
 
     def get_primary_focus_widget(self):

@@ -8,6 +8,7 @@ Tkinter-based ID check-in app for Raspberry Pi. The system reads swipe data from
 - Swipe-based student lookup
 - Manual registration / check-in path using Student ID and myMDC username
 - First-card linking confirmation for pre-registered students
+- Larger kiosk-friendly screen layout with centered panels and readable form fields
 - Canonical `assets/` and `data/` storage layout
 - Daily check-in CSV logs under `data/checkins/`
 - App-level camera ownership so capture continues across screen changes
@@ -179,6 +180,8 @@ Capture tuning lives in `config.py`:
 - `CAMERA_PROBE_ATTEMPTS`
 - `CAMERA_PROBE_READ_INTERVAL_SEC`
 - `CAMERA_READ_FAILURE_LIMIT`
+- `KIOSK_FULLSCREEN`
+- `KIOSK_ALLOW_ESC_EXIT`
 
 If the event window does not produce a candidate, the app falls back to the original immediate single-frame save.
 
@@ -199,6 +202,7 @@ If the event window does not produce a candidate, the app falls back to the orig
 
 - The app keeps the cursor visible.
 - Startup uses a plain Tk root window on X11/Linux and avoids `withdraw()` / `deiconify()` / `overrideredirect()` remap tricks.
+- Kiosk fullscreen uses stable screen-sized geometry only. Window decorations are intentionally left on for stability and Alt access.
 - The app does not hard-lock keyboard shortcuts.
 - Cardholder names are parsed from Track 1 only and normalized to canonical `First Middle Last` form for saved outputs.
 - On confirmed first-card link, the cleaned Track 1 card name replaces the pre-registered name as the canonical stored student name.

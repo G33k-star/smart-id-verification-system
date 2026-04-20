@@ -49,7 +49,6 @@ def startup_idle_checkpoint(root, app):
 root = tk.Tk()
 print("[Startup] Tk root created")
 install_root_diagnostics(root)
-root.resizable(False, False)
 print_root_state(root, "after root creation")
 
 print("[Startup] App initialization starting")

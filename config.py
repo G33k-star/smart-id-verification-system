@@ -31,6 +31,28 @@ RUNTIME_DIRECTORIES = (
 ADMIN_USERNAME = "admin" # PLEASE CHANGE (Look in "System Info" file)
 ADMIN_PASSWORD = "admin1234" # PLEASE CHANGE (Look in "System Info" file)
 
+APP_BACKGROUND_COLOR = "#eef2f6"
+PANEL_BACKGROUND_COLOR = "#ffffff"
+PANEL_BORDER_COLOR = "#d5dde6"
+PRIMARY_TEXT_COLOR = "#182533"
+SECONDARY_TEXT_COLOR = "#5d6b78"
+ACCENT_TEXT_COLOR = "#274c77"
+STATUS_BACKGROUND_COLOR = "#f7f9fb"
+INPUT_BACKGROUND_COLOR = "#ffffff"
+
+TITLE_FONT = ("Arial", 30, "bold")
+SCREEN_TITLE_FONT = ("Arial", 24, "bold")
+INSTRUCTION_FONT = ("Arial", 18)
+BODY_FONT = ("Arial", 16)
+MESSAGE_FONT = ("Arial", 18, "bold")
+DETAIL_FONT = ("Arial", 14)
+INPUT_FONT = ("Arial", 20)
+BUTTON_FONT = ("Arial", 16, "bold")
+SMALL_FONT = ("Arial", 12)
+
+KIOSK_FULLSCREEN = True
+KIOSK_ALLOW_ESC_EXIT = False
+
 # Capture tuning
 BUFFER_DURATION_SEC = 2.5
 PRE_EVENT_WINDOW_SEC = 0.3

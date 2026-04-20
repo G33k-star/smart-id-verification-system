@@ -9,8 +9,18 @@ from capture_session import CaptureService
 from config import (
     ADMIN_PASSWORD,
     ADMIN_USERNAME,
+    APP_BACKGROUND_COLOR,
+    BUTTON_FONT,
     DATA_CHECKINS_FOLDER,
     DATA_STUDENTS_FOLDER,
+    DETAIL_FONT,
+    INPUT_BACKGROUND_COLOR,
+    KIOSK_ALLOW_ESC_EXIT,
+    KIOSK_FULLSCREEN,
+    PANEL_BACKGROUND_COLOR,
+    PANEL_BORDER_COLOR,
+    PRIMARY_TEXT_COLOR,
+    SCREEN_TITLE_FONT,
     WINDOW_HEIGHT,
     WINDOW_WIDTH,
 )
@@ -82,7 +92,15 @@ def configure_root_window(window):
     except tk.TclError as exc:
         print("[Startup] Could not disable -fullscreen:", exc)
 
-    window.geometry(f"{width}x{height}+0+0")
+    if KIOSK_FULLSCREEN:
+        window.geometry(f"{width}x{height}+0+0")
+        window.resizable(False, False)
+    else:
+        x_pos = max((width - WINDOW_WIDTH) // 2, 0)
+        y_pos = max((height - WINDOW_HEIGHT) // 2, 0)
+        window.geometry(f"{WINDOW_WIDTH}x{WINDOW_HEIGHT}+{x_pos}+{y_pos}")
+        window.resizable(True, True)
+
     print("[Startup] Root configured:", describe_root_window(window))
 
 
@@ -92,9 +110,9 @@ class CheckInApp:
     def __init__(self, root):
         print("[Startup] CheckInApp init start")
         self.root = root
-        self.root.title("ID Check-In System")
+        self.root.title("Robotics Lab Check-In")
         self.root.geometry(f"{WINDOW_WIDTH}x{WINDOW_HEIGHT}")
-        self.root.configure(bg="white")
+        self.root.configure(bg=APP_BACKGROUND_COLOR)
         self.active_screen_name = None
 
         initialize_storage()
@@ -121,7 +139,8 @@ class CheckInApp:
         self.processing = False
         self.processing_lock = threading.Lock()
 
-        self.container = tk.Frame(self.root, bg="white")
+        self.root.bind("<Escape>", self._handle_escape_key, add="+")
+        self.container = tk.Frame(self.root, bg=APP_BACKGROUND_COLOR)
         self.container.pack(fill="both", expand=True)
         print("[Startup] Root container created")
 
@@ -141,11 +160,11 @@ class CheckInApp:
         print("[Startup] show_frame ->", name)
         frame = self.frames[name]
         self.active_screen_name = name
-        frame.tkraise()
 
         if hasattr(frame, "reset_screen"):
             frame.reset_screen()
 
+        frame.tkraise()
         self.restore_active_focus()
 
     def get_active_primary_focus_widget(self):
@@ -218,6 +237,10 @@ class CheckInApp:
         if event.widget is self.root:
             self.restore_active_focus()
 
+    def _handle_escape_key(self, _event):
+        if KIOSK_ALLOW_ESC_EXIT:
+            self.safe_quit_program()
+
     def ensure_camera_running(self):
         print("[Startup] ensure_camera_running called")
         return self.capture_service.start_camera()
@@ -250,8 +273,8 @@ class CheckInApp:
     def open_terms_window(self):
         win = tk.Toplevel(self.root)
         win.title("Terms and Conditions")
-        width = 600
-        height = 400
+        width = 760
+        height = 520
         x_pos = (self.root.winfo_screenwidth() - width) // 2
         y_pos = (self.root.winfo_screenheight() - height) // 2
         win.geometry(f"{width}x{height}+{x_pos}+{y_pos}")
@@ -260,6 +283,7 @@ class CheckInApp:
         win.resizable(False, False)
         win.lift()
         win.focus_set()
+        win.configure(bg=APP_BACKGROUND_COLOR)
 
         def close_terms_window():
             if win.winfo_exists():
@@ -268,12 +292,45 @@ class CheckInApp:
 
         win.protocol("WM_DELETE_WINDOW", close_terms_window)
 
-        text = tk.Text(win, wrap="word")
-        text.pack(fill="both", expand=True, padx=10, pady=10)
+        panel = tk.Frame(
+            win,
+            bg=PANEL_BACKGROUND_COLOR,
+            bd=1,
+            relief="solid",
+            highlightbackground=PANEL_BORDER_COLOR,
+            highlightcolor=PANEL_BORDER_COLOR,
+            highlightthickness=1
+        )
+        panel.pack(fill="both", expand=True, padx=20, pady=20)
+
+        tk.Label(
+            panel,
+            text="Terms and Conditions",
+            font=SCREEN_TITLE_FONT,
+            fg=PRIMARY_TEXT_COLOR,
+            bg=PANEL_BACKGROUND_COLOR
+        ).pack(pady=(18, 10))
+
+        text = tk.Text(
+            panel,
+            wrap="word",
+            font=DETAIL_FONT,
+            bg=INPUT_BACKGROUND_COLOR,
+            fg=PRIMARY_TEXT_COLOR,
+            relief="solid",
+            bd=1
+        )
+        text.pack(fill="both", expand=True, padx=20, pady=(0, 16))
         text.insert("1.0", get_terms_text())
         text.config(state="disabled")
 
-        tk.Button(win, text="Close", command=close_terms_window).pack(pady=10)
+        tk.Button(
+            panel,
+            text="Close",
+            font=BUTTON_FONT,
+            width=14,
+            command=close_terms_window
+        ).pack(pady=(0, 18))
 
     def process_swipe_from_screen1(self):
         if not self._begin_processing():
