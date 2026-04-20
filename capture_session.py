@@ -400,11 +400,8 @@ class CaptureService:
         self.enrollment_lock = threading.Lock()
 
     def start_camera(self):
-        if not self.camera_manager.start_camera():
-            return False
-
         self._start_buffer_worker()
-        return True
+        return self.camera_manager.start_camera()
 
     def stop_camera(self):
         self.cancel_enrollment_session()

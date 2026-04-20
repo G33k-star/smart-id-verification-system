@@ -9,6 +9,8 @@ Tkinter-based ID check-in app for Raspberry Pi. The system reads swipe data from
 - Canonical `assets/` and `data/` storage layout
 - Daily check-in CSV logs under `data/checkins/`
 - App-level camera ownership so capture continues across screen changes
+- Automatic camera discovery across configurable indices
+- Background camera reconnect if no camera is present at startup or a camera is unplugged later
 - Event-driven photo capture with rolling frame buffer
 - Face-prioritized frame selection using lightweight OpenCV scoring
 - New-student registration flow with event-triggered enrollment capture
@@ -127,6 +129,13 @@ Capture tuning lives in `config.py`:
 - `BRIGHTNESS_MAX`
 - `MAX_BUFFER_FRAMES`
 - `DEBUG_SAVE_FRAMES`
+- `CAMERA_INDEX_MIN`
+- `CAMERA_INDEX_MAX`
+- `CAMERA_DISCOVERY_RETRY_SEC`
+- `CAMERA_PROBE_WARMUP_SEC`
+- `CAMERA_PROBE_ATTEMPTS`
+- `CAMERA_PROBE_READ_INTERVAL_SEC`
+- `CAMERA_READ_FAILURE_LIMIT`
 
 If the event window does not produce a candidate, the app falls back to the original immediate single-frame save.
 
@@ -150,3 +159,5 @@ If the event window does not produce a candidate, the app falls back to the orig
 - Cardholder names are parsed from Track 1 only and normalized to canonical `First Middle Last` form for saved outputs.
 - Main-screen success/error messages auto-reset after a short timeout.
 - The camera is released on quit.
+- If no USB camera is available at startup, the app stays open and keeps retrying in the background until a working camera appears.
+- If the active camera is unplugged or stops producing frames, the app releases it and returns to discovery mode automatically.

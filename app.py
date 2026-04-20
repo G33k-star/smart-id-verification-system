@@ -92,6 +92,7 @@ class CheckInApp:
 
         self.camera_manager = CameraManager()
         self.capture_service = CaptureService(self.camera_manager)
+        self.camera_manager.set_state_callback(self._handle_camera_state_change)
         print("[Startup] Camera services created")
 
         self.swipe_var = tk.StringVar()
@@ -161,6 +162,30 @@ class CheckInApp:
         screen1 = self.frames.get("Screen1")
         if screen1:
             screen1.set_message(text, color, auto_clear=auto_clear)
+
+    def _handle_camera_state_change(self, available):
+        try:
+            self.root.after(0, lambda: self._apply_camera_state_change(available))
+        except tk.TclError:
+            pass
+
+    def _apply_camera_state_change(self, available):
+        try:
+            if not self.root.winfo_exists():
+                return
+        except tk.TclError:
+            return
+
+        if available:
+            self.capture_service.start_camera()
+
+        if self.active_screen_name != "Screen1" or self._is_processing():
+            return
+
+        if available:
+            self._set_main_status("Camera connected.", "green", auto_clear=True)
+        else:
+            self._set_main_status("Camera unavailable", "red")
 
     def _focus_widget(self, widget):
         try:
