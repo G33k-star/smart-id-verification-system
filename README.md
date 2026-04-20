@@ -53,6 +53,7 @@ Tracked app assets:
 ```text
 assets/contracts/Robotics Lab Behavioral Contract 2026.pdf
 assets/text/terms_and_conditions.txt
+backup_data.sh
 care_package/
 screens/
 app.py
@@ -77,6 +78,35 @@ data/contracts/signed/<name>-<student_id>-signed_contract.pdf
 
 The `data/` tree is runtime-only and is ignored by git. On first app start, the app creates the required directories and an empty `data/students/database.csv` if it does not exist yet.
 The master behavioral-contract template lives at `assets/contracts/Robotics Lab Behavioral Contract 2026.pdf` and is treated as read-only input. The app only writes per-student signed copies under `data/contracts/signed/`.
+
+## Data Backup
+
+The repo includes `backup_data.sh` for simple Git-based cloud backups of the `data/` folder only. The script:
+
+- runs from the repo root
+- force-stages only `data/`
+- does nothing if `data/` has no changes
+- commits backup changes with a UTC timestamp
+- pushes to `origin/main`
+- refuses to run if unrelated staged changes already exist outside `data/`
+
+Make it executable on the Pi:
+
+```bash
+chmod +x backup_data.sh
+```
+
+Example cron setup for an hourly backup:
+
+```bash
+crontab -e
+```
+
+Add:
+
+```cron
+0 * * * * cd /home/pi/smart-id-verification-system && ./backup_data.sh >> /home/pi/smart-id-backup.log 2>&1
+```
 
 ## Runtime Flow
 
