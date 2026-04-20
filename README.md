@@ -80,8 +80,8 @@ Known student:
 1. Swipe ID.
 2. Look up the card in `data/students/database.csv`.
 3. Treat the swipe as a capture event.
-4. Score buffered frames from about 0.5 seconds before the swipe through about 1.5 seconds after it.
-5. Prefer a single clear face, then choose the best candidate from that event window.
+4. Score buffered frames from a short window around the swipe, with stronger preference for frames slightly after the swipe.
+5. Prefer a single clear face that is large enough, near center, and not edge-clipped, then choose the best candidate from that event window.
 6. Save only the best final image to `data/photos/checkins/...`.
 7. Append the check-in row to the daily CSV.
 
@@ -103,11 +103,12 @@ The capture pipeline uses only lightweight OpenCV operations:
 - continuous camera stream with sampled rolling buffer
 - downscaled grayscale scoring frames
 - Haar-cascade face detection on sampled frames only
-- preference for one clear face in the event window
+- strong preference for one clear centered face in the event window
 - centered face preference
 - minimum face-size and edge-clipping checks
 - sharpness via Laplacian variance
 - brightness range scoring
+- post-scan timing bias so early pre-swipe frames rank lower
 - general-image fallback using sharpness, brightness, and centered detail
 
 ## Capture Tuning

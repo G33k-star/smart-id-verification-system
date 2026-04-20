@@ -14,6 +14,8 @@ from config import (
     BRIGHTNESS_MIN,
     BUFFER_DURATION_SEC,
     CENTER_TOLERANCE_RATIO,
+    CLEAR_FACE_CENTER_SCORE,
+    CLEAR_FACE_EDGE_SCORE,
     DATA_PHOTOS_FOLDER,
     DEBUG_SAVE_FRAMES,
     FACE_DETECT_SCALE,
@@ -21,6 +23,7 @@ from config import (
     MAX_BUFFER_FRAMES,
     MIN_FACE_SIZE_RATIO,
     POST_EVENT_WINDOW_SEC,
+    PREFERRED_POST_EVENT_SEC,
     PRE_EVENT_WINDOW_SEC,
 )
 
@@ -143,10 +146,7 @@ class BestFrameScorer:
             return []
 
         min_dimension = min(gray_frame.shape[:2])
-        min_face_size = max(
-            24,
-            int(min_dimension * max(0.12, math.sqrt(MIN_FACE_SIZE_RATIO)))
-        )
+        min_face_size = max(24, int(min_dimension * 0.14))
 
         try:
             faces = self.face_cascade.detectMultiScale(
@@ -195,25 +195,35 @@ class BestFrameScorer:
         dominant_score = self._dominant_face_score(faces)
 
         total_score = _clamp(
-            0.32 * centered_score +
-            0.22 * size_score +
-            0.20 * sharpness_score +
-            0.14 * brightness_score +
-            0.08 * edge_score +
-            0.04 * dominant_score
+            0.30 * centered_score +
+            0.24 * size_score +
+            0.14 * edge_score +
+            0.16 * sharpness_score +
+            0.10 * brightness_score +
+            0.06 * dominant_score
         )
 
         if len(faces) == 1:
-            total_score = _clamp(total_score + 0.05)
+            total_score = _clamp(total_score + 0.08)
         else:
-            total_score = _clamp(total_score - 0.05 * min(len(faces) - 1, 2))
+            total_score = _clamp(total_score - 0.18 * min(len(faces) - 1, 2))
+
+        total_score = _clamp(
+            total_score
+            - 0.18 * (1.0 - size_score)
+            - 0.16 * (1.0 - centered_score)
+            - 0.14 * (1.0 - edge_score)
+            - 0.12 * (1.0 - sharpness_score)
+            - 0.08 * (1.0 - brightness_score)
+        )
 
         single_clear_face = (
             len(faces) == 1 and
             face_ratio >= MIN_FACE_SIZE_RATIO and
+            centered_score >= CLEAR_FACE_CENTER_SCORE and
+            edge_score >= CLEAR_FACE_EDGE_SCORE and
             blur_variance >= BLUR_THRESHOLD and
-            BRIGHTNESS_MIN <= brightness_value <= BRIGHTNESS_MAX and
-            edge_score >= 0.15
+            BRIGHTNESS_MIN <= brightness_value <= BRIGHTNESS_MAX
         )
 
         return FrameMetrics(
@@ -243,10 +253,10 @@ class BestFrameScorer:
         contrast_score = self._contrast_score(gray_frame)
 
         total_score = _clamp(
-            0.44 * sharpness_score +
-            0.28 * brightness_score +
-            0.20 * centered_score +
-            0.08 * contrast_score
+            0.40 * sharpness_score +
+            0.24 * brightness_score +
+            0.22 * centered_score +
+            0.14 * contrast_score
         )
 
         acceptable = (
@@ -289,13 +299,16 @@ class BestFrameScorer:
             return 0.0
 
         if face_ratio < MIN_FACE_SIZE_RATIO:
-            return _clamp(face_ratio / MIN_FACE_SIZE_RATIO)
+            return _clamp(0.6 * (face_ratio / MIN_FACE_SIZE_RATIO))
 
         ideal_ratio = min(0.20, max(MIN_FACE_SIZE_RATIO * 2.5, 0.08))
         if face_ratio <= ideal_ratio:
-            return 1.0
+            range_size = max(ideal_ratio - MIN_FACE_SIZE_RATIO, 0.01)
+            return _clamp(
+                0.6 + (0.4 * ((face_ratio - MIN_FACE_SIZE_RATIO) / range_size))
+            )
 
-        return _clamp(1.0 - ((face_ratio - ideal_ratio) / ideal_ratio))
+        return _clamp(1.0 - ((face_ratio - ideal_ratio) / max(ideal_ratio * 0.85, 0.01)))
 
     def _edge_score(self, frame_width, frame_height, x_pos, y_pos, width, height):
         min_margin = min(
@@ -304,7 +317,7 @@ class BestFrameScorer:
             max(0, frame_width - (x_pos + width)),
             max(0, frame_height - (y_pos + height))
         )
-        target_margin = min(frame_width, frame_height) * 0.05
+        target_margin = min(frame_width, frame_height) * 0.07
         if target_margin <= 0:
             return 0.0
         return _clamp(min_margin / target_margin)
@@ -537,7 +550,7 @@ class CaptureService:
         if clear_single_face:
             return max(
                 clear_single_face,
-                key=lambda candidate: self._single_face_key(candidate, event_time)
+                key=lambda candidate: self._single_face_candidate_score(candidate, event_time)
             )
 
         face_candidates = [
@@ -548,48 +561,68 @@ class CaptureService:
         if face_candidates:
             return max(
                 face_candidates,
-                key=lambda candidate: self._face_candidate_key(candidate, event_time)
+                key=lambda candidate: self._face_candidate_score(candidate, event_time)
             )
 
         return max(
             candidates,
-            key=lambda candidate: self._general_candidate_key(candidate, event_time)
+            key=lambda candidate: self._general_candidate_score(candidate, event_time)
         )
 
-    def _single_face_key(self, candidate, event_time):
+    def _single_face_candidate_score(self, candidate, event_time):
         metrics = candidate.metrics
+        timing_score = self._timing_score(candidate.timestamp, event_time)
         return (
-            metrics.centered_score,
-            metrics.size_score,
-            metrics.sharpness_score,
-            metrics.brightness_score,
-            metrics.total_score,
-            -abs(candidate.timestamp - event_time)
+            metrics.total_score +
+            0.14 * metrics.size_score +
+            0.12 * metrics.centered_score +
+            0.10 * metrics.edge_score +
+            0.10 * timing_score
         )
 
-    def _face_candidate_key(self, candidate, event_time):
+    def _face_candidate_score(self, candidate, event_time):
         metrics = candidate.metrics
+        timing_score = self._timing_score(candidate.timestamp, event_time)
+        multi_face_penalty = 0.22 * min(max(metrics.face_count - 1, 0), 2)
         return (
-            metrics.face_count == 1,
-            metrics.face_ratio >= MIN_FACE_SIZE_RATIO,
-            metrics.centered_score,
-            metrics.size_score,
-            metrics.sharpness_score,
-            metrics.brightness_score,
-            metrics.total_score,
-            -abs(candidate.timestamp - event_time)
+            metrics.total_score +
+            0.18 * timing_score +
+            0.12 * (1.0 if metrics.face_count == 1 else 0.0) -
+            multi_face_penalty -
+            0.24 * (1.0 - metrics.size_score) -
+            0.22 * (1.0 - metrics.centered_score) -
+            0.20 * (1.0 - metrics.edge_score) -
+            0.16 * (1.0 - metrics.sharpness_score) -
+            0.12 * (1.0 - metrics.brightness_score)
         )
 
-    def _general_candidate_key(self, candidate, event_time):
+    def _general_candidate_score(self, candidate, event_time):
         metrics = candidate.metrics
+        timing_score = self._timing_score(candidate.timestamp, event_time)
         return (
-            metrics.sharpness_score,
-            metrics.brightness_score,
-            metrics.centered_score,
-            metrics.heuristic_score,
-            metrics.total_score,
-            -abs(candidate.timestamp - event_time)
+            metrics.total_score +
+            0.18 * timing_score -
+            0.14 * (1.0 - metrics.sharpness_score) -
+            0.12 * (1.0 - metrics.brightness_score) -
+            0.10 * (1.0 - metrics.centered_score)
         )
+
+    def _timing_score(self, timestamp, event_time):
+        delta = timestamp - event_time
+        preferred_post = min(max(PREFERRED_POST_EVENT_SEC, 0.0), POST_EVENT_WINDOW_SEC)
+
+        if delta < 0:
+            progress = 1.0 - (abs(delta) / max(PRE_EVENT_WINDOW_SEC, 0.01))
+            return _clamp(0.20 + (0.25 * progress))
+
+        if preferred_post <= 0:
+            return 1.0
+
+        if delta <= preferred_post:
+            return _clamp(0.55 + (0.45 * (delta / preferred_post)))
+
+        remaining_window = max(POST_EVENT_WINDOW_SEC - preferred_post, 0.01)
+        return _clamp(1.0 - (0.45 * ((delta - preferred_post) / remaining_window)))
 
     def _resolve_event_capture(self, capture):
         if capture is None:
