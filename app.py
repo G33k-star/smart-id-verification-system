@@ -71,17 +71,25 @@ def configure_root_window(window):
     height = window.winfo_screenheight()
 
     window.overrideredirect(False)
+    window.configure(cursor="")
 
-    for attribute_name in ("-topmost", "-fullscreen"):
-        try:
-            window.attributes(attribute_name, False)
-        except tk.TclError:
-            pass
+    try:
+        window.attributes("-topmost", False)
+    except tk.TclError:
+        pass
 
     if KIOSK_FULLSCREEN:
         window.geometry(f"{width}x{height}+0+0")
         window.resizable(False, False)
+        try:
+            window.attributes("-fullscreen", True)
+        except tk.TclError:
+            window.geometry(f"{width}x{height}+0+0")
     else:
+        try:
+            window.attributes("-fullscreen", False)
+        except tk.TclError:
+            pass
         x_pos = max((width - WINDOW_WIDTH) // 2, 0)
         y_pos = max((height - WINDOW_HEIGHT) // 2, 0)
         window.geometry(f"{WINDOW_WIDTH}x{WINDOW_HEIGHT}+{x_pos}+{y_pos}")
