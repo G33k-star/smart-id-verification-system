@@ -85,16 +85,23 @@ The master behavioral-contract template lives at `assets/contracts/Robotics Lab 
 The repo includes `backup_data.sh` for simple Git-based cloud backups of the `data/` folder only. The script:
 
 - runs from the repo root
+- runs `git pull --rebase --autostash origin main` before staging backups
 - force-stages only `data/`
 - does nothing if `data/` has no changes
 - commits backup changes with a UTC timestamp
 - pushes to `origin/main`
-- refuses to run if unrelated staged changes already exist outside `data/`
+- refuses to run if any staged, unstaged, or untracked changes exist outside `data/`
 
 Make it executable on the Pi:
 
 ```bash
 chmod +x backup_data.sh
+```
+
+Recommended Git setup on the Pi:
+
+```bash
+git config --global pull.rebase true
 ```
 
 Example cron setup for an hourly backup:
