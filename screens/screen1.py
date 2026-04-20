@@ -41,6 +41,12 @@ class Screen1(tk.Frame):
         self.swipe_entry.pack(pady=20)
         self.swipe_entry.bind("<Return>", lambda e: controller.process_swipe_from_screen1())
 
+        tk.Button(
+            self,
+            text="Register / Check In Without Card",
+            command=controller.start_manual_registration_flow
+        ).pack(pady=5)
+
         # Terms Button
         tk.Button(
             self,
@@ -58,7 +64,7 @@ class Screen1(tk.Frame):
         # Disclaimer
         tk.Label(
             self,
-            text="By scanning your ID, you agree to the terms and conditions.",
+            text="By using this kiosk, you acknowledge the terms and conditions.",
             font=("Arial", 10),
             fg="gray",
             bg="white"

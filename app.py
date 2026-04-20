@@ -18,8 +18,11 @@ from contract_service import generate_behavioral_contract, has_signed_contract
 from data_service import (
     add_student_to_database,
     already_checked_in_today,
+    find_student_by_credentials,
     find_student_in_database,
+    get_registration_conflict,
     save_checkin,
+    update_student_card_id,
 )
 from file_setup import (
     create_checkin_file_if_needed,
@@ -31,8 +34,10 @@ from screens.screen1 import Screen1
 from screens.screen2 import Screen2
 from screens.screen3 import Screen3
 from screens.screen4 import Screen4
+from screens.screen5 import Screen5
 from validators import (
     build_mymdc_email,
+    normalize_person_name,
     normalize_phone_number,
     parse_swipe,
     valid_mymdc_username,
@@ -96,6 +101,7 @@ class CheckInApp:
         print("[Startup] Camera services created")
 
         self.swipe_var = tk.StringVar()
+        self.name_var = tk.StringVar()
         self.student_var = tk.StringVar()
         self.phone_var = tk.StringVar()
         self.mymdc_username_var = tk.StringVar()
@@ -104,6 +110,9 @@ class CheckInApp:
 
         self.pending_name = None
         self.pending_card_id = None
+        self.pending_link_candidate = None
+        self.pending_link_form = None
+        self.registration_context = {}
         self.processing = False
         self.processing_lock = threading.Lock()
 
@@ -112,7 +121,7 @@ class CheckInApp:
         print("[Startup] Root container created")
 
         self.frames = {}
-        for frame_class in (Screen1, Screen2, Screen3, Screen4):
+        for frame_class in (Screen1, Screen2, Screen3, Screen4, Screen5):
             print("[Startup] Creating frame:", frame_class.__name__)
             frame = frame_class(self.container, self)
             self.frames[frame_class.__name__] = frame
@@ -182,10 +191,16 @@ class CheckInApp:
         if self.active_screen_name != "Screen1" or self._is_processing():
             return
 
+        screen1 = self.frames.get("Screen1")
+        if not screen1:
+            return
+
         if available:
-            self._set_main_status("Camera connected.", "green", auto_clear=True)
-        else:
-            self._set_main_status("Camera unavailable", "red")
+            if screen1.message_label.cget("text") == "Camera unavailable":
+                screen1.reset_status_message()
+            return
+
+        self._set_main_status("Camera unavailable", "red")
 
     def _focus_widget(self, widget):
         try:
@@ -280,8 +295,16 @@ class CheckInApp:
         checkin_file = get_today_checkin_file()
         create_checkin_file_if_needed(checkin_file)
 
-        if already_checked_in_today(checkin_file, card_id):
-            self._set_main_status(f"{canonical_name} already checked in.", "orange", auto_clear=True)
+        if already_checked_in_today(
+            checkin_file,
+            card_id=card_id,
+            student_id=student["Student ID"] if student else None
+        ):
+            self._set_main_status(
+                f"{canonical_name} already checked in.",
+                "orange",
+                auto_clear=True
+            )
             self.swipe_var.set("")
             self._end_processing()
             return
@@ -311,22 +334,43 @@ class CheckInApp:
 
         self.pending_name = canonical_name
         self.pending_card_id = card_id
+        self.pending_link_candidate = None
+        self.pending_link_form = None
 
         if not self.capture_service.start_enrollment_session(event_capture):
-            self.pending_name = None
-            self.pending_card_id = None
+            self._clear_registration_state()
             self._set_main_status("Camera unavailable.", "red", auto_clear=True)
             self._end_processing()
             return
 
+        self._prepare_registration_form(
+            mode="swipe",
+            initial_name=canonical_name
+        )
         self._end_processing()
         self.show_frame("Screen2")
 
-    def add_user_and_check_in(self):
+    def start_manual_registration_flow(self):
+        if self._is_processing():
+            return
+
+        self._clear_registration_state()
+        self.capture_service.cancel_enrollment_session()
+        self._prepare_registration_form(mode="manual")
+        self.show_frame("Screen2")
+
+    def submit_registration_form(self):
         screen2 = self.frames["Screen2"]
 
         if not self._begin_processing():
             screen2.set_message("Already processing...", "orange")
+            return
+
+        try:
+            normalized_name = normalize_person_name(self.name_var.get().strip())
+        except ValueError:
+            screen2.set_message("Enter a valid full name.", "red")
+            self._end_processing()
             return
 
         sid = self.student_var.get().strip()
@@ -346,27 +390,156 @@ class CheckInApp:
             screen2.set_message("Invalid username", "red")
             validation_failed = True
 
-        if not validation_failed:
-            screen2.set_message("Finalizing...", "blue")
+        if validation_failed:
+            self._end_processing()
+            return
 
-        pending_name = self.pending_name
-        pending_card_id = self.pending_card_id
+        normalized_phone = normalize_phone_number(phone)
+        normalized_username, email = build_mymdc_email(username)
+        existing_student = find_student_by_credentials(sid, normalized_username)
+        conflict_message = get_registration_conflict(sid, normalized_username)
+
+        if existing_student:
+            if self.registration_context.get("mode") == "swipe":
+                if not existing_student.get("Card ID"):
+                    self.pending_link_candidate = existing_student
+                    self.pending_link_form = {
+                        "name": normalized_name,
+                        "student_id": sid,
+                        "phone_number": normalized_phone,
+                        "mymdc_username": normalized_username,
+                        "email": email,
+                        "swipe_name": self.pending_name,
+                    }
+                    self._end_processing()
+                    self.show_frame("Screen5")
+                    return
+
+                screen2.set_message(
+                    "This student record already has a different card linked. Please see staff.",
+                    "red"
+                )
+                self._end_processing()
+                return
+
+            checkin_file = get_today_checkin_file()
+            create_checkin_file_if_needed(checkin_file)
+            if already_checked_in_today(
+                checkin_file,
+                card_id=existing_student.get("Card ID"),
+                student_id=existing_student.get("Student ID")
+            ):
+                screen2.set_message(
+                    "{0} already checked in today.".format(existing_student["Name"]),
+                    "orange"
+                )
+                self._end_processing()
+                return
+
+            if not self.is_camera_running():
+                screen2.set_message("Camera unavailable.", "red")
+                self._end_processing()
+                return
+
+            screen2.set_message("Processing...", "blue")
+            threading.Thread(
+                target=self._complete_existing_user_manual_flow,
+                args=(existing_student, checkin_file),
+                daemon=True
+            ).start()
+            return
+
+        if conflict_message:
+            screen2.set_message(conflict_message, "red")
+            self._end_processing()
+            return
+
+        if not self.is_camera_running():
+            screen2.set_message("Camera unavailable.", "red")
+            self._end_processing()
+            return
+
+        if self.registration_context.get("mode") == "manual":
+            if not self.capture_service.start_enrollment_session():
+                screen2.set_message("Camera unavailable.", "red")
+                self._end_processing()
+                return
+
+        screen2.set_message("Finalizing...", "blue")
         threading.Thread(
             target=self._complete_new_user_flow,
-            args=(pending_name, pending_card_id, sid, phone, username),
+            args=(
+                normalized_name,
+                self.pending_card_id or "",
+                sid,
+                normalized_phone,
+                normalized_username,
+                email,
+            ),
             daemon=True
         ).start()
+
+    def confirm_card_link(self):
+        if not self._begin_processing():
+            return
+
+        candidate = self.pending_link_candidate
+        form = self.pending_link_form or {}
+        if not candidate or not self.pending_card_id:
+            self._end_processing()
+            self._handle_background_failure()
+            return
+
+        updated_student = update_student_card_id(candidate["Student ID"], self.pending_card_id)
+        if not updated_student:
+            self._end_processing()
+            self._handle_background_failure()
+            return
+
+        if not has_signed_contract(updated_student["Name"], updated_student["Student ID"]):
+            generate_behavioral_contract(
+                student_name=updated_student["Name"],
+                student_id=updated_student["Student ID"],
+                signed_name=updated_student["Name"]
+            )
+
+        checkin_file = get_today_checkin_file()
+        create_checkin_file_if_needed(checkin_file)
+        if already_checked_in_today(
+            checkin_file,
+            card_id=updated_student.get("Card ID"),
+            student_id=updated_student.get("Student ID")
+        ):
+            self.capture_service.cancel_enrollment_session()
+
+            def finish_already_checked_in():
+                self.show_frame("Screen1")
+                self._set_main_status(
+                    "Card linked for {0}. Already checked in today.".format(updated_student["Name"]),
+                    "orange",
+                    auto_clear=True
+                )
+                self._clear_registration_state()
+                self._end_processing()
+
+            self.root.after(0, finish_already_checked_in)
+            return
+
+        threading.Thread(
+            target=self._complete_card_link_flow,
+            args=(updated_student, checkin_file, form.get("phone_number", updated_student.get("Phone Number", ""))),
+            daemon=True
+        ).start()
+
+    def back_to_registration_from_link(self):
+        self.show_frame("Screen2")
 
     def cancel_new_user_flow(self):
         if self._is_processing():
             return
 
         self.capture_service.cancel_enrollment_session()
-        self.pending_name = None
-        self.pending_card_id = None
-        self.student_var.set("")
-        self.phone_var.set("")
-        self.mymdc_username_var.set("")
+        self._clear_registration_state()
         self.show_frame("Screen1")
 
     def check_admin_credentials(self):
@@ -399,6 +572,24 @@ class CheckInApp:
     def _is_processing(self):
         with self.processing_lock:
             return self.processing
+
+    def _prepare_registration_form(self, mode, initial_name=""):
+        self.registration_context = {"mode": mode}
+        self.name_var.set(initial_name)
+        self.student_var.set("")
+        self.phone_var.set("")
+        self.mymdc_username_var.set("")
+
+    def _clear_registration_state(self):
+        self.pending_name = None
+        self.pending_card_id = None
+        self.pending_link_candidate = None
+        self.pending_link_form = None
+        self.registration_context = {}
+        self.name_var.set("")
+        self.student_var.set("")
+        self.phone_var.set("")
+        self.mymdc_username_var.set("")
 
     def _process_known_user_capture(self, student, checkin_file, event_capture):
         try:
@@ -436,51 +627,86 @@ class CheckInApp:
             print("[App] Known-user processing failed:", exc)
             self.root.after(0, self._handle_background_failure)
 
-    def _complete_new_user_flow(self, pending_name, pending_card_id, sid, phone, username):
+    def _complete_existing_user_manual_flow(self, student, checkin_file):
         try:
-            normalized_phone = normalize_phone_number(phone)
-            normalized_username, email = build_mymdc_email(username)
+            success, path, metrics = self.capture_service.capture_known_user(
+                student["Name"],
+                identity_value=student["Student ID"]
+            )
+
+            if success:
+                save_checkin(
+                    checkin_file,
+                    student["Name"],
+                    student.get("Card ID", ""),
+                    student["Student ID"],
+                    student["Phone Number"]
+                )
+
+            def finish():
+                if not success:
+                    self.frames["Screen2"].set_message("Camera error.", "red")
+                    self._end_processing()
+                    return
+
+                if metrics:
+                    print("[Capture] Manual known-user best score:", round(metrics.total_score, 3))
+                print("[Capture] Final photo path:", path)
+
+                self.swipe_var.set("")
+                self.show_frame("Screen1")
+                self._set_main_status(f"{student['Name']} checked in.", "green", auto_clear=True)
+                self._clear_registration_state()
+                self._end_processing()
+
+            self.root.after(0, finish)
+        except Exception as exc:
+            print("[App] Manual existing-user processing failed:", exc)
+            self.root.after(0, self._handle_background_failure)
+
+    def _complete_new_user_flow(self, name, card_id, sid, phone, username, email):
+        try:
             success, path, metrics = self.capture_service.finalize_enrollment_capture(
-                pending_name,
+                name,
                 identity_value=sid
             )
 
             if not success:
                 def fail():
-                    self.pending_name = None
-                    self.pending_card_id = None
                     self.show_frame("Screen1")
                     self._set_main_status("Camera error.", "red", auto_clear=True)
+                    self._clear_registration_state()
                     self._end_processing()
 
                 self.root.after(0, fail)
                 return
 
             add_student_to_database(
-                pending_name,
-                pending_card_id,
+                name,
+                card_id,
                 sid,
-                normalized_phone,
-                normalized_username,
+                phone,
+                username,
                 email
             )
-            if has_signed_contract(pending_name, sid):
-                print("[Contract] Signed contract already exists for:", pending_name, sid)
+
+            if has_signed_contract(name, sid):
+                print("[Contract] Signed contract already exists for:", name, sid)
             else:
                 generate_behavioral_contract(
-                    student_name=pending_name,
+                    student_name=name,
                     student_id=sid,
-                    signed_name=pending_name
+                    signed_name=name
                 )
 
             checkin_file = get_today_checkin_file()
             create_checkin_file_if_needed(checkin_file)
             save_checkin(
                 checkin_file,
-                pending_name,
-                pending_card_id,
+                name,
+                card_id,
                 sid,
-                normalized_phone
+                phone
             )
 
             def finish():
@@ -488,15 +714,10 @@ class CheckInApp:
                     print("[Capture] Enrollment best score:", round(metrics.total_score, 3))
                 print("[Capture] Final photo path:", path)
 
-                self.pending_name = None
-                self.pending_card_id = None
-                self.student_var.set("")
-                self.phone_var.set("")
-                self.mymdc_username_var.set("")
                 self.swipe_var.set("")
-
                 self.show_frame("Screen1")
-                self._set_main_status(f"{pending_name} added and checked in.", "green", auto_clear=True)
+                self._set_main_status(f"{name} added and checked in.", "green", auto_clear=True)
+                self._clear_registration_state()
                 self._end_processing()
 
             self.root.after(0, finish)
@@ -504,9 +725,51 @@ class CheckInApp:
             print("[App] Enrollment processing failed:", exc)
             self.root.after(0, self._handle_background_failure)
 
+    def _complete_card_link_flow(self, student, checkin_file, phone_number):
+        try:
+            success, path, metrics = self.capture_service.finalize_enrollment_capture(
+                student["Name"],
+                identity_value=student["Student ID"]
+            )
+
+            if success:
+                save_checkin(
+                    checkin_file,
+                    student["Name"],
+                    student["Card ID"],
+                    student["Student ID"],
+                    phone_number or student.get("Phone Number", "")
+                )
+
+            def finish():
+                if not success:
+                    self._set_main_status("Camera error.", "red", auto_clear=True)
+                    self.show_frame("Screen1")
+                    self._clear_registration_state()
+                    self._end_processing()
+                    return
+
+                if metrics:
+                    print("[Capture] Linked-user best score:", round(metrics.total_score, 3))
+                print("[Capture] Final photo path:", path)
+
+                self.show_frame("Screen1")
+                self._set_main_status(
+                    "Card linked for {0}. Check-in complete.".format(student["Name"]),
+                    "green",
+                    auto_clear=True
+                )
+                self._clear_registration_state()
+                self._end_processing()
+
+            self.root.after(0, finish)
+        except Exception as exc:
+            print("[App] Card link processing failed:", exc)
+            self.root.after(0, self._handle_background_failure)
+
     def _handle_background_failure(self):
-        self.pending_name = None
-        self.pending_card_id = None
         self.show_frame("Screen1")
         self._set_main_status("Unexpected error.", "red", auto_clear=True)
+        self.capture_service.cancel_enrollment_session()
+        self._clear_registration_state()
         self._end_processing()

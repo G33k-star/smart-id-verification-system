@@ -38,14 +38,31 @@ def _normalize_name_component(value):
     return " ".join(tokens)
 
 
+def normalize_person_name(name):
+    normalized = _normalize_name_component(name)
+    if not normalized:
+        raise ValueError("Name format incomplete")
+    return normalized
+
+
+def names_match(left_name, right_name):
+    try:
+        left_normalized = normalize_person_name(left_name).casefold()
+        right_normalized = normalize_person_name(right_name).casefold()
+    except ValueError:
+        return False
+
+    return left_normalized == right_normalized
+
+
 def normalize_cardholder_name(track1_name):
     name_value = str(track1_name).strip()
     if "/" not in name_value:
         raise ValueError("Name format invalid")
 
     last_raw, first_raw = name_value.split("/", 1)
-    first_middle = _normalize_name_component(first_raw)
-    last = _normalize_name_component(last_raw)
+    first_middle = normalize_person_name(first_raw)
+    last = normalize_person_name(last_raw)
 
     if not first_middle or not last:
         raise ValueError("Name format incomplete")

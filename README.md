@@ -1,11 +1,13 @@
 # Smart ID Verification System
 
-Tkinter-based ID check-in app for Raspberry Pi. The system reads swipe data from a USB ID scanner, looks up students in the local CSV database, captures a camera image for the check-in, and creates a signed behavioral-contract PDF for new students.
+Tkinter-based ID check-in app for Raspberry Pi. The system reads swipe data from a USB ID scanner, supports a no-card registration/check-in path, looks up students in the local CSV database, captures a camera image for the check-in, and creates a signed behavioral-contract PDF for student onboarding.
 
 ## Features
 
 - Stable Tkinter root window sized to the display
 - Swipe-based student lookup
+- Manual registration / check-in path using Student ID and myMDC username
+- First-card linking confirmation for pre-registered students
 - Canonical `assets/` and `data/` storage layout
 - Daily check-in CSV logs under `data/checkins/`
 - App-level camera ownership so capture continues across screen changes
@@ -14,7 +16,7 @@ Tkinter-based ID check-in app for Raspberry Pi. The system reads swipe data from
 - Event-driven photo capture with rolling frame buffer
 - Face-prioritized frame selection using lightweight OpenCV scoring
 - New-student registration flow with event-triggered enrollment capture
-- Behavioral-contract PDF generation from the bundled template
+- Behavioral-contract PDF generation from the bundled contract asset
 - Focus restoration so the swipe field is ready after startup, screen changes, and popup close
 
 ## Requirements
@@ -87,16 +89,25 @@ Known student:
 6. Save only the best final image to `data/photos/checkins/...`, and skip duplicate photo saves if the same student already has one for that day.
 7. Append the check-in row to the daily CSV.
 
-New student:
+Swipe-based new student:
 
 1. Swipe ID.
 2. Treat the swipe as the enrollment capture event before showing the registration form.
-3. Keep the best event-window candidate in memory while the form is open.
-4. If registration is canceled, discard the pending capture.
-5. If registration completes, save the best event-window candidate using the normal photo naming convention.
-6. Create or append the student database record.
-7. Generate the signed behavioral-contract PDF only if one does not already exist for that student.
-8. Append the daily check-in row.
+3. If the user later enters a Student ID + myMDC username that matches a pre-registered record with no card linked yet, the app shows a confirmation step before linking the swiped card.
+4. Keep the best event-window candidate in memory while the form is open.
+5. If registration is canceled, discard the pending capture.
+6. If registration completes, save the best event-window candidate using the normal photo naming convention.
+7. Create or append the student database record.
+8. Generate the signed behavioral-contract PDF only if one does not already exist for that student.
+9. Append the daily check-in row.
+
+No-card registration / check-in:
+
+1. Use the main-screen no-card option.
+2. Enter full name, Student ID, phone number, and myMDC username.
+3. If Student ID + myMDC username already match an existing student record, the app uses that canonical record for check-in.
+4. If no record exists, the app creates a pre-registered student record with no card linked yet.
+5. The app captures the check-in photo, generates the signed behavioral-contract PDF if needed, and writes the daily check-in row.
 
 ## Capture Scoring
 
@@ -143,6 +154,7 @@ If the event window does not produce a candidate, the app falls back to the orig
 
 - `main.py` - Tkinter startup
 - `app.py` - main controller, screen navigation, focus restoration, check-in flow
+- `screens/screen5.py` - first-card link confirmation screen
 - `cam.py` - low-level camera access and image saving
 - `capture_session.py` - rolling buffer, event-window selection, and best-frame scoring
 - `data_service.py` - database lookup and CSV writes
@@ -158,6 +170,7 @@ If the event window does not produce a candidate, the app falls back to the orig
 - The app does not hard-lock keyboard shortcuts.
 - Cardholder names are parsed from Track 1 only and normalized to canonical `First Middle Last` form for saved outputs.
 - Main-screen success/error messages auto-reset after a short timeout.
+- The main screen stays silent when the camera is healthy and only shows camera messages when the camera is unavailable or capture fails.
 - The camera is released on quit.
 - If no USB camera is available at startup, the app stays open and keeps retrying in the background until a working camera appears.
 - If the active camera is unplugged or stops producing frames, the app releases it and returns to discovery mode automatically.
