@@ -33,6 +33,14 @@ Tkinter-based ID check-in app for Raspberry Pi. The system reads swipe data from
 python3 -m pip install -r requirements.txt
 ```
 
+Pi kiosk helpers:
+
+```bash
+sudo apt-get update
+sudo apt-get install -y numlockx x11-xserver-utils
+chmod +x start_app.sh kiosk_x11.sh restore_kiosk_x11.sh backup_data.sh
+```
+
 ## Run
 
 App startup:
@@ -47,6 +55,12 @@ Pi launcher script:
 ./start_app.sh
 ```
 
+Emergency keyboard restore from SSH while the kiosk is running on `:0`:
+
+```bash
+DISPLAY=:0 XAUTHORITY=/home/pi/.Xauthority /home/pi/smart-id-verification-system/restore_kiosk_x11.sh
+```
+
 ## Project Layout
 
 Tracked app assets:
@@ -56,7 +70,10 @@ assets/contracts/Robotics Lab Behavioral Contract 2026.pdf
 assets/text/terms_and_conditions.txt
 backup_data.sh
 care_package/
+kiosk_x11.sh
+restore_kiosk_x11.sh
 screens/
+start_app.sh
 app.py
 cam.py
 capture_session.py
@@ -188,7 +205,9 @@ Capture tuning lives in `config.py`:
 - `CAMERA_PROBE_READ_INTERVAL_SEC`
 - `CAMERA_READ_FAILURE_LIMIT`
 - `KIOSK_FULLSCREEN`
+- `KIOSK_LOCK_KEYS`
 - `KIOSK_ALLOW_ESC_EXIT`
+- `KIOSK_FORCE_NUMLOCK`
 
 If the event window does not produce a candidate, the app falls back to the original immediate single-frame save.
 
@@ -209,8 +228,13 @@ If the event window does not produce a candidate, the app falls back to the orig
 
 - The app keeps the cursor visible.
 - Startup uses a plain Tk root window on X11/Linux and avoids `withdraw()` / `deiconify()` / `overrideredirect()` remap tricks.
-- Kiosk fullscreen uses stable screen-sized geometry only. Window decorations are intentionally left on for stability and Alt access.
-- The app does not hard-lock keyboard shortcuts.
+- Kiosk fullscreen uses stable screen-sized geometry only with `KIOSK_FULLSCREEN = True`.
+- Borderless mode is intentionally not used in production because removing X11 window decorations safely would require the same remap-style `overrideredirect()` path that previously caused the white-window startup failure.
+- `KIOSK_LOCK_KEYS = True` blocks `Alt`, `Super`, `Ctrl`, and `Esc` in the app and also removes those keys from the active X11 keymap when you launch through `./start_app.sh`.
+- `KIOSK_FORCE_NUMLOCK = True` runs `numlockx on` during `./start_app.sh` so NumLock starts enabled on the Pi X11 session.
+- `./start_app.sh` restores the saved X11 keyboard map automatically when the app exits normally.
+- For SSH or emergency recovery while the kiosk is still open, run `DISPLAY=:0 XAUTHORITY=/home/pi/.Xauthority /home/pi/smart-id-verification-system/restore_kiosk_x11.sh`.
+- The temporary X11 keyboard-backup file is stored under `~/.cache/smart-id-verification-system/` so runtime kiosk state does not interfere with the Git-based `backup_data.sh` cron job.
 - Cardholder names are parsed from Track 1 only and normalized to canonical `First Middle Last` form for saved outputs.
 - On confirmed first-card link, the cleaned Track 1 card name replaces the pre-registered name as the canonical stored student name.
 - The blank master contract template is never rewritten by the app.

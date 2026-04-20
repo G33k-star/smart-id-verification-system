@@ -1,4 +1,5 @@
 import os
+import logging
 import subprocess
 import sys
 import threading
@@ -17,6 +18,7 @@ from config import (
     INPUT_BACKGROUND_COLOR,
     KIOSK_ALLOW_ESC_EXIT,
     KIOSK_FULLSCREEN,
+    KIOSK_LOCK_KEYS,
     PANEL_BACKGROUND_COLOR,
     PANEL_BORDER_COLOR,
     PRIMARY_TEXT_COLOR,
@@ -61,36 +63,20 @@ from validators import (
 )
 
 
-def describe_root_window(window):
-    try:
-        state = window.state()
-    except tk.TclError:
-        state = "unavailable"
-
-    return "state={0} mapped={1} viewable={2} geometry={3}".format(
-        state,
-        window.winfo_ismapped(),
-        window.winfo_viewable(),
-        window.winfo_geometry()
-    )
+LOGGER = logging.getLogger(__name__)
 
 
 def configure_root_window(window):
     width = window.winfo_screenwidth()
     height = window.winfo_screenheight()
-    print("[Startup] Configuring stable root window: {0}x{1}".format(width, height))
 
     window.overrideredirect(False)
 
-    try:
-        window.attributes("-topmost", False)
-    except tk.TclError as exc:
-        print("[Startup] Could not disable -topmost:", exc)
-
-    try:
-        window.attributes("-fullscreen", False)
-    except tk.TclError as exc:
-        print("[Startup] Could not disable -fullscreen:", exc)
+    for attribute_name in ("-topmost", "-fullscreen"):
+        try:
+            window.attributes(attribute_name, False)
+        except tk.TclError:
+            pass
 
     if KIOSK_FULLSCREEN:
         window.geometry(f"{width}x{height}+0+0")
@@ -101,14 +87,11 @@ def configure_root_window(window):
         window.geometry(f"{WINDOW_WIDTH}x{WINDOW_HEIGHT}+{x_pos}+{y_pos}")
         window.resizable(True, True)
 
-    print("[Startup] Root configured:", describe_root_window(window))
-
 
 class CheckInApp:
     FOCUS_RETRY_MS = 150
 
     def __init__(self, root):
-        print("[Startup] CheckInApp init start")
         self.root = root
         self.root.title("Robotics Lab Check-In")
         self.root.geometry(f"{WINDOW_WIDTH}x{WINDOW_HEIGHT}")
@@ -116,12 +99,10 @@ class CheckInApp:
         self.active_screen_name = None
 
         initialize_storage()
-        print("[Startup] Storage initialized")
 
         self.camera_manager = CameraManager()
         self.capture_service = CaptureService(self.camera_manager)
         self.camera_manager.set_state_callback(self._handle_camera_state_change)
-        print("[Startup] Camera services created")
 
         self.swipe_var = tk.StringVar()
         self.name_var = tk.StringVar()
@@ -140,24 +121,21 @@ class CheckInApp:
         self.processing_lock = threading.Lock()
 
         self.root.bind("<Escape>", self._handle_escape_key, add="+")
+        if KIOSK_LOCK_KEYS:
+            self._install_kiosk_key_lock()
         self.container = tk.Frame(self.root, bg=APP_BACKGROUND_COLOR)
         self.container.pack(fill="both", expand=True)
-        print("[Startup] Root container created")
 
         self.frames = {}
         for frame_class in (Screen1, Screen2, Screen3, Screen4, Screen5):
-            print("[Startup] Creating frame:", frame_class.__name__)
             frame = frame_class(self.container, self)
             self.frames[frame_class.__name__] = frame
             frame.place(relwidth=1, relheight=1)
-            print("[Startup] Frame ready:", frame_class.__name__)
 
         self.root.bind("<FocusIn>", self._handle_root_focus_in, add="+")
         self.show_frame("Screen1")
-        print("[Startup] CheckInApp init complete")
 
     def show_frame(self, name):
-        print("[Startup] show_frame ->", name)
         frame = self.frames[name]
         self.active_screen_name = name
 
@@ -181,10 +159,8 @@ class CheckInApp:
     def restore_active_focus(self):
         widget = self.get_active_primary_focus_widget()
         if not widget:
-            print("[Startup] No primary focus widget for", self.active_screen_name)
             return
 
-        print("[Startup] Scheduling focus restore for", self.active_screen_name)
         self.root.after_idle(lambda: self._focus_widget(widget))
         self.root.after(
             self.FOCUS_RETRY_MS,
@@ -237,19 +213,48 @@ class CheckInApp:
         if event.widget is self.root:
             self.restore_active_focus()
 
+    def _install_kiosk_key_lock(self):
+        blocked_sequences = (
+            "<KeyPress-Alt_L>",
+            "<KeyRelease-Alt_L>",
+            "<KeyPress-Alt_R>",
+            "<KeyRelease-Alt_R>",
+            "<KeyPress-Control_L>",
+            "<KeyRelease-Control_L>",
+            "<KeyPress-Control_R>",
+            "<KeyRelease-Control_R>",
+            "<KeyPress-Super_L>",
+            "<KeyRelease-Super_L>",
+            "<KeyPress-Super_R>",
+            "<KeyRelease-Super_R>",
+            "<KeyPress-Meta_L>",
+            "<KeyRelease-Meta_L>",
+            "<KeyPress-Meta_R>",
+            "<KeyRelease-Meta_R>",
+            "<KeyPress-Escape>",
+            "<KeyRelease-Escape>",
+        )
+
+        for sequence in blocked_sequences:
+            self.root.bind_all(sequence, self._suppress_key_event, add="+")
+
+    def _suppress_key_event(self, _event):
+        return "break"
+
     def _handle_escape_key(self, _event):
         if KIOSK_ALLOW_ESC_EXIT:
             self.safe_quit_program()
+            return "break"
+
+        return "break"
 
     def ensure_camera_running(self):
-        print("[Startup] ensure_camera_running called")
         return self.capture_service.start_camera()
 
     def is_camera_running(self):
         return self.capture_service.is_camera_running()
 
     def safe_quit_program(self):
-        print("[Startup] safe_quit_program called")
         self.capture_service.stop_camera()
         self.root.destroy()
 
@@ -267,8 +272,8 @@ class CheckInApp:
                 os.startfile(path)
             elif sys.platform == "darwin":
                 subprocess.Popen(["open", path])
-        except Exception as exc:
-            print("[App] Failed to open path:", exc)
+        except Exception:
+            LOGGER.exception("Failed to open path %s", path)
 
     def open_terms_window(self):
         win = tk.Toplevel(self.root)
@@ -575,10 +580,16 @@ class CheckInApp:
         )
 
         if photo_rename_result["collisions"]:
-            print("[Files] Photo rename collisions:", photo_rename_result["collisions"])
+            LOGGER.warning(
+                "Skipped photo rename for student %s because one or more destination files already exist.",
+                updated_student["Student ID"]
+            )
 
         if contract_rename_result["collision"]:
-            print("[Files] Contract rename collision for student:", updated_student["Student ID"])
+            LOGGER.warning(
+                "Skipped contract rename for student %s because the destination file already exists.",
+                updated_student["Student ID"]
+            )
 
         if not get_signed_contract_path(updated_student["Name"], updated_student["Student ID"]).exists():
             generate_behavioral_contract(
@@ -677,7 +688,7 @@ class CheckInApp:
 
     def _process_known_user_capture(self, student, checkin_file, event_capture):
         try:
-            success, path, metrics = self.capture_service.capture_known_user(
+            success, _, _ = self.capture_service.capture_known_user(
                 student["Name"],
                 identity_value=student["Student ID"],
                 event_capture=event_capture
@@ -698,22 +709,18 @@ class CheckInApp:
                     self._end_processing()
                     return
 
-                print("[Capture] Final photo path:", path)
-                if metrics:
-                    print("[Capture] Known-user best score:", round(metrics.total_score, 3))
-
                 self._set_main_status(f"{student['Name']} checked in.", "green", auto_clear=True)
                 self.swipe_var.set("")
                 self._end_processing()
 
             self.root.after(0, finish)
-        except Exception as exc:
-            print("[App] Known-user processing failed:", exc)
+        except Exception:
+            LOGGER.exception("Known-user processing failed")
             self.root.after(0, self._handle_background_failure)
 
     def _complete_existing_user_manual_flow(self, student, checkin_file):
         try:
-            success, path, metrics = self.capture_service.capture_known_user(
+            success, _, _ = self.capture_service.capture_known_user(
                 student["Name"],
                 identity_value=student["Student ID"]
             )
@@ -733,10 +740,6 @@ class CheckInApp:
                     self._end_processing()
                     return
 
-                if metrics:
-                    print("[Capture] Manual known-user best score:", round(metrics.total_score, 3))
-                print("[Capture] Final photo path:", path)
-
                 self.swipe_var.set("")
                 self.show_frame("Screen1")
                 self._set_main_status(f"{student['Name']} checked in.", "green", auto_clear=True)
@@ -744,13 +747,13 @@ class CheckInApp:
                 self._end_processing()
 
             self.root.after(0, finish)
-        except Exception as exc:
-            print("[App] Manual existing-user processing failed:", exc)
+        except Exception:
+            LOGGER.exception("Manual existing-user processing failed")
             self.root.after(0, self._handle_background_failure)
 
     def _complete_new_user_flow(self, name, card_id, sid, phone, username, email):
         try:
-            success, path, metrics = self.capture_service.finalize_enrollment_capture(
+            success, _, _ = self.capture_service.finalize_enrollment_capture(
                 name,
                 identity_value=sid
             )
@@ -774,9 +777,7 @@ class CheckInApp:
                 email
             )
 
-            if has_signed_contract(name, sid):
-                print("[Contract] Signed contract already exists for:", name, sid)
-            else:
+            if not has_signed_contract(name, sid):
                 generate_behavioral_contract(
                     student_name=name,
                     student_id=sid,
@@ -794,10 +795,6 @@ class CheckInApp:
             )
 
             def finish():
-                if metrics:
-                    print("[Capture] Enrollment best score:", round(metrics.total_score, 3))
-                print("[Capture] Final photo path:", path)
-
                 self.swipe_var.set("")
                 self.show_frame("Screen1")
                 self._set_main_status(f"{name} added and checked in.", "green", auto_clear=True)
@@ -805,13 +802,13 @@ class CheckInApp:
                 self._end_processing()
 
             self.root.after(0, finish)
-        except Exception as exc:
-            print("[App] Enrollment processing failed:", exc)
+        except Exception:
+            LOGGER.exception("Enrollment processing failed")
             self.root.after(0, self._handle_background_failure)
 
     def _complete_card_link_flow(self, student, checkin_file, phone_number):
         try:
-            success, path, metrics = self.capture_service.finalize_enrollment_capture(
+            success, _, _ = self.capture_service.finalize_enrollment_capture(
                 student["Name"],
                 identity_value=student["Student ID"]
             )
@@ -833,10 +830,6 @@ class CheckInApp:
                     self._end_processing()
                     return
 
-                if metrics:
-                    print("[Capture] Linked-user best score:", round(metrics.total_score, 3))
-                print("[Capture] Final photo path:", path)
-
                 self.show_frame("Screen1")
                 self._set_main_status(
                     "Card linked for {0}. Check-in complete.".format(student["Name"]),
@@ -847,8 +840,8 @@ class CheckInApp:
                 self._end_processing()
 
             self.root.after(0, finish)
-        except Exception as exc:
-            print("[App] Card link processing failed:", exc)
+        except Exception:
+            LOGGER.exception("Card link processing failed")
             self.root.after(0, self._handle_background_failure)
 
     def _handle_background_failure(self):

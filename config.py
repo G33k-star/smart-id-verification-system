@@ -51,7 +51,9 @@ BUTTON_FONT = ("Arial", 16, "bold")
 SMALL_FONT = ("Arial", 12)
 
 KIOSK_FULLSCREEN = True
+KIOSK_LOCK_KEYS = True
 KIOSK_ALLOW_ESC_EXIT = False
+KIOSK_FORCE_NUMLOCK = True
 
 # Capture tuning
 BUFFER_DURATION_SEC = 2.5
