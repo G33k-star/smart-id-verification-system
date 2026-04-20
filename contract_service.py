@@ -8,8 +8,7 @@ from pypdf import PdfReader, PdfWriter
 
 from config import (
     BEHAVIORAL_CONTRACT_TEMPLATE,
-    BEHAVIORAL_CONTRACT_SIGNED_FOLDER,
-    LEGACY_BEHAVIORAL_CONTRACT_TEMPLATE
+    BEHAVIORAL_CONTRACT_SIGNED_FOLDER
 )
 
 
@@ -103,11 +102,7 @@ def _build_overlay(student_name, student_id, signed_name, contract_date):
 
 
 def generate_behavioral_contract(student_name, student_id, signed_name=None):
-    template_candidates = [
-        Path(BEHAVIORAL_CONTRACT_TEMPLATE),
-        Path(LEGACY_BEHAVIORAL_CONTRACT_TEMPLATE)
-    ]
-    template_path = next((path for path in template_candidates if path.exists()), template_candidates[0])
+    template_path = Path(BEHAVIORAL_CONTRACT_TEMPLATE)
     output_dir = Path(BEHAVIORAL_CONTRACT_SIGNED_FOLDER)
     signed_name = signed_name or student_name
     contract_date = datetime.now().strftime("%m/%d/%Y")

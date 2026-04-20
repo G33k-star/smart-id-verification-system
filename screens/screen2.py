@@ -26,16 +26,6 @@ class Screen2(tk.Frame):
         )
         self.message_label.pack(pady=5)
 
-        # Status
-        self.status_label = tk.Label(
-            self,
-            text="",
-            font=("Arial", 12),
-            fg="black",
-            bg="white"
-        )
-        self.status_label.pack(pady=5)
-
         # Form
         form = tk.Frame(self, bg="white")
         form.pack(pady=15)
@@ -69,19 +59,12 @@ class Screen2(tk.Frame):
     def reset_screen(self):
         self.clear_fields()
         self.set_message("User not recognized. Add new user?")
-        self.clear_status()
 
     def set_message(self, text, color="black"):
         self.message_label.config(text=text, fg=color)
 
     def get_primary_focus_widget(self):
         return self.student_entry
-
-    def set_status(self, text, color="black"):
-        self.status_label.config(text=text, fg=color)
-
-    def clear_status(self):
-        self.status_label.config(text="")
 
     def clear_fields(self):
         self.controller.student_var.set("")

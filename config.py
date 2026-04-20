@@ -20,21 +20,13 @@ BEHAVIORAL_CONTRACT_TEMPLATE = os.path.join(
     "Robotics Lab Behavioral Contract 2026.pdf"
 )
 BEHAVIORAL_CONTRACT_SIGNED_FOLDER = DATA_CONTRACTS_SIGNED_FOLDER
-
-CHECKIN_FOLDER = DATA_CHECKINS_FOLDER
 TERMS_FILE = os.path.join(ASSETS_TEXT_FOLDER, "terms_and_conditions.txt")
-PHOTO_FOLDER = DATA_PHOTOS_CHECKINS_FOLDER
-
-LEGACY_DATABASE_FOLDER = os.path.join(PROJECT_ROOT, "database_folder")
-LEGACY_DATABASE_FILE = os.path.join(LEGACY_DATABASE_FOLDER, "database.csv")
-LEGACY_BEHAVIORAL_CONTRACT_TEMPLATE = os.path.join(
-    LEGACY_DATABASE_FOLDER,
-    "behavioral contract",
-    "Robotics Lab Behavioral Contract 2026.pdf"
+RUNTIME_DIRECTORIES = (
+    DATA_STUDENTS_FOLDER,
+    DATA_CHECKINS_FOLDER,
+    DATA_PHOTOS_CHECKINS_FOLDER,
+    DATA_CONTRACTS_SIGNED_FOLDER,
 )
-LEGACY_CHECKIN_FOLDER = os.path.join(PROJECT_ROOT, "checkin_logs")
-LEGACY_TERMS_FILE = os.path.join(PROJECT_ROOT, "terms_and_conditions.txt")
-LEGACY_PHOTO_FOLDER = os.path.join(PROJECT_ROOT, "checkin_photos")
 
 ADMIN_USERNAME = "admin" # PLEASE CHANGE (Look in "System Info" file)
 ADMIN_PASSWORD = "admin1234" # PLEASE CHANGE (Look in "System Info" file)

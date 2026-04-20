@@ -1,17 +1,17 @@
 # Smart ID Verification System
 
-Tkinter-based ID check-in app for Raspberry Pi. The system reads swipe data from a USB ID scanner, looks up students in a CSV database, captures a camera image for the check-in, and creates a signed behavioral-contract PDF for new students.
+Tkinter-based ID check-in app for Raspberry Pi. The system reads swipe data from a USB ID scanner, looks up students in the local CSV database, captures a camera image for the check-in, and creates a signed behavioral-contract PDF for new students.
 
 ## Features
 
 - Full-screen kiosk-style Tkinter UI
 - Swipe-based student lookup
-- Daily check-in CSV logs
+- Canonical `assets/` and `data/` storage layout
+- Daily check-in CSV logs under `data/checkins/`
 - App-level camera ownership so capture continues across screen changes
 - Best-frame capture sessions using lightweight OpenCV scoring
 - New-student registration flow with in-memory enrollment capture
 - Behavioral-contract PDF generation from the bundled template
-- Absolute repo-root-based paths only
 - Focus restoration so the swipe field is ready after startup, screen changes, and popup close
 
 ## Requirements
@@ -21,21 +21,15 @@ Tkinter-based ID check-in app for Raspberry Pi. The system reads swipe data from
 - USB ID card scanner that acts like a keyboard
 - USB camera supported by OpenCV / V4L2
 
-## Python Dependencies
-
-- `opencv-python`
-- `pypdf`
-- `fpdf2`
-
-Install example:
+## Install
 
 ```bash
-python3 -m pip install opencv-python pypdf fpdf2
+python3 -m pip install -r requirements.txt
 ```
 
 ## Run
 
-Manual launch:
+App startup:
 
 ```bash
 python3 main.py
@@ -47,16 +41,27 @@ Pi launcher script:
 ./start_app.sh
 ```
 
-## Canonical Project Storage
+## Project Layout
 
-Static app assets:
+Tracked app assets:
 
 ```text
 assets/contracts/Robotics Lab Behavioral Contract 2026.pdf
 assets/text/terms_and_conditions.txt
+care_package/
+screens/
+app.py
+cam.py
+capture_session.py
+config.py
+contract_service.py
+data_service.py
+file_setup.py
+main.py
+validators.py
 ```
 
-Generated runtime data:
+Runtime data created on startup and during use:
 
 ```text
 data/students/database.csv
@@ -65,13 +70,7 @@ data/photos/checkins/YYYY-MM-DD/<name>_<time>.jpg
 data/contracts/signed/<name>-<student_id>-signed_contract.pdf
 ```
 
-Legacy compatibility:
-
-- The app still reads the old database from `database_folder/database.csv` if the canonical file does not exist yet.
-- The app still reads old daily check-in files from `checkin_logs/` for duplicate detection.
-- The app still reads terms text from `terms_and_conditions.txt` if the canonical asset file has not been moved yet.
-- The contract template is read from `database_folder/behavioral contract/...` as a fallback if it has not been moved into `assets/contracts/` yet.
-- New writes go only to the canonical `assets/` and `data/` layout.
+The `data/` tree is runtime-only and is ignored by git. On first app start, the app creates the required directories and an empty `data/students/database.csv` if it does not exist yet.
 
 ## Runtime Flow
 

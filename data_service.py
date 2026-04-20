@@ -1,40 +1,21 @@
-# database module 
-
 import csv
 import os
 from datetime import datetime
-from config import (
-    DATABASE_FILE,
-    LEGACY_DATABASE_FILE,
-    LEGACY_CHECKIN_FOLDER
-)
+from config import DATABASE_FILE
 
 
-def _existing_read_paths(*paths):
-    existing = []
-    for path in paths:
-        if path and path not in existing and os.path.exists(path):
-            existing.append(path)
-    return existing
+def _iter_rows(filename):
+    if not os.path.exists(filename):
+        return
 
+    with open(filename, mode="r", newline="", encoding="utf-8") as file:
+        reader = csv.DictReader(file)
+        for row in reader:
+            yield row
 
-def _iter_student_rows():
-    for path in _existing_read_paths(DATABASE_FILE, LEGACY_DATABASE_FILE):
-        with open(path, mode="r", newline="", encoding="utf-8") as file:
-            reader = csv.DictReader(file)
-            for row in reader:
-                yield row
-
-
-def _checkin_read_paths(filename):
-    legacy_path = os.path.join(LEGACY_CHECKIN_FOLDER, os.path.basename(filename))
-    return _existing_read_paths(filename, legacy_path)
 
 def find_student_in_database(card_id):
-    if not _existing_read_paths(DATABASE_FILE, LEGACY_DATABASE_FILE):
-        return None
-
-    for row in _iter_student_rows():
+    for row in _iter_rows(DATABASE_FILE):
         if row["Card ID"] == card_id:
             return row
 
@@ -61,17 +42,12 @@ def add_student_to_database(
         ])
 
 def already_checked_in_today(filename, card_id):
-    paths = _checkin_read_paths(filename)
-
-    if not paths:
+    if not os.path.exists(filename):
         return False
 
-    for path in paths:
-        with open(path, mode="r", newline="", encoding="utf-8") as file:
-            reader = csv.DictReader(file)
-            for row in reader:
-                if row["Card ID"] == card_id:
-                    return True
+    for row in _iter_rows(filename):
+        if row["Card ID"] == card_id:
+            return True
 
     return False
 

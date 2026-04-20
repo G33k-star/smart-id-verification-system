@@ -342,7 +342,7 @@ class CaptureService:
             if success:
                 return True, path, result.metrics
 
-        success, path = self.camera_manager.capture_image_with_face_check(person_name)
+        success, path = self.camera_manager.capture_image(person_name)
         return success, path, result.metrics
 
     def start_enrollment_session(self):
@@ -377,7 +377,7 @@ class CaptureService:
         else:
             fallback_metrics = None
 
-        success, path = self.camera_manager.capture_image_with_face_check(person_name)
+        success, path = self.camera_manager.capture_image(person_name)
         return success, path, fallback_metrics
 
     def cancel_enrollment_session(self):

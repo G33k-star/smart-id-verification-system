@@ -15,8 +15,7 @@ from config import (
 )
 
 from file_setup import (
-    create_database_if_needed,
-    create_terms_file_if_needed,
+    initialize_storage,
     get_terms_text,
     get_today_checkin_file,
     create_checkin_file_if_needed
@@ -71,8 +70,7 @@ class CheckInApp:
         self.root.configure(bg="white")
         self.active_screen_name = None
 
-        create_database_if_needed()
-        create_terms_file_if_needed()
+        initialize_storage()
 
         self.camera_manager = CameraManager()
         self.capture_service = CaptureService(self.camera_manager)
@@ -162,10 +160,10 @@ class CheckInApp:
         self.capture_service.stop_camera()
         self.root.destroy()
 
-    def open_csv_folder(self):
+    def open_checkins_folder(self):
         self.open_path(DATA_CHECKINS_FOLDER)
 
-    def open_database_folder(self):
+    def open_student_data_folder(self):
         self.open_path(DATA_STUDENTS_FOLDER)
 
     def open_path(self, path):
@@ -279,7 +277,7 @@ class CheckInApp:
         self.show_frame("Screen2")
 
     # -------------------------
-    # Add User (FIXED)
+    # Add User
     # -------------------------
     def add_user_and_check_in(self):
         screen1 = self.frames["Screen1"]

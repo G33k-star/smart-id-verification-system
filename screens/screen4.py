@@ -20,15 +20,15 @@ class Screen4(tk.Frame):
             text="Open Check-In Folder",
             width=25,
             height=2,
-            command=controller.open_csv_folder
+            command=controller.open_checkins_folder
         ).pack(pady=10)
 
         tk.Button(
             self,
-            text="Open Database Folder",
+            text="Open Student Data Folder",
             width=25,
             height=2,
-            command=controller.open_database_folder
+            command=controller.open_student_data_folder
         ).pack(pady=10)
 
         tk.Button(
