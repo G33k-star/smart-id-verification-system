@@ -14,7 +14,7 @@ from config import (
     WINDOW_HEIGHT,
     WINDOW_WIDTH,
 )
-from contract_service import generate_behavioral_contract
+from contract_service import generate_behavioral_contract, has_signed_contract
 from data_service import (
     add_student_to_database,
     already_checked_in_today,
@@ -157,6 +157,11 @@ class CheckInApp:
             lambda: self._focus_widget(widget)
         )
 
+    def _set_main_status(self, text, color="black", auto_clear=False):
+        screen1 = self.frames.get("Screen1")
+        if screen1:
+            screen1.set_message(text, color, auto_clear=auto_clear)
+
     def _focus_widget(self, widget):
         try:
             if widget and widget.winfo_exists() and widget.winfo_viewable():
@@ -226,22 +231,20 @@ class CheckInApp:
         tk.Button(win, text="Close", command=close_terms_window).pack(pady=10)
 
     def process_swipe_from_screen1(self):
-        screen1 = self.frames["Screen1"]
-
         if not self._begin_processing():
-            screen1.set_message("Already processing...", "orange")
+            self._set_main_status("Already processing...", "orange", auto_clear=True)
             return
 
         swipe = self.swipe_var.get().strip()
         if not swipe:
-            screen1.set_message("No swipe detected.", "red")
+            self._set_main_status("No swipe detected.", "red", auto_clear=True)
             self._end_processing()
             return
 
         try:
             name, card_id = parse_swipe(swipe)
         except Exception:
-            screen1.set_message("Invalid swipe format.", "red")
+            self._set_main_status("Invalid swipe format.", "red", auto_clear=True)
             self.swipe_var.set("")
             self._end_processing()
             return
@@ -250,22 +253,22 @@ class CheckInApp:
         create_checkin_file_if_needed(checkin_file)
 
         if already_checked_in_today(checkin_file, card_id):
-            screen1.set_message(f"{name} already checked in.", "orange")
+            self._set_main_status(f"{name} already checked in.", "orange", auto_clear=True)
             self.swipe_var.set("")
             self._end_processing()
             return
 
         if not self.is_camera_running():
-            screen1.set_message("Camera unavailable.", "red")
+            self._set_main_status("Camera unavailable.", "red", auto_clear=True)
             self._end_processing()
             return
 
-        screen1.set_message("Processing...", "blue")
+        self._set_main_status("Processing...", "blue")
         self.root.update_idletasks()
 
         event_capture = self.capture_service.trigger_capture_event()
         if event_capture is None:
-            screen1.set_message("Camera unavailable.", "red")
+            self._set_main_status("Camera unavailable.", "red", auto_clear=True)
             self._end_processing()
             return
 
@@ -285,7 +288,7 @@ class CheckInApp:
         if not self.capture_service.start_enrollment_session(event_capture):
             self.pending_name = None
             self.pending_card_id = None
-            screen1.set_message("Camera unavailable.", "red")
+            self._set_main_status("Camera unavailable.", "red", auto_clear=True)
             self._end_processing()
             return
 
@@ -374,6 +377,7 @@ class CheckInApp:
         try:
             success, path, metrics = self.capture_service.capture_known_user(
                 student["Name"],
+                identity_value=student["Student ID"],
                 event_capture=event_capture
             )
 
@@ -387,18 +391,16 @@ class CheckInApp:
                 )
 
             def finish():
-                screen1 = self.frames["Screen1"]
-
                 if not success:
-                    screen1.set_message("Camera error.", "red")
+                    self._set_main_status("Camera error.", "red", auto_clear=True)
                     self._end_processing()
                     return
 
-                print("Saved:", path)
+                print("[Capture] Final photo path:", path)
                 if metrics:
                     print("[Capture] Known-user best score:", round(metrics.total_score, 3))
 
-                screen1.set_message(f"{student['Name']} checked in.", "green")
+                self._set_main_status(f"{student['Name']} checked in.", "green", auto_clear=True)
                 self.swipe_var.set("")
                 self._end_processing()
 
@@ -411,15 +413,17 @@ class CheckInApp:
         try:
             normalized_phone = normalize_phone_number(phone)
             normalized_username, email = build_mymdc_email(username)
-            success, path, metrics = self.capture_service.finalize_enrollment_capture(pending_name)
+            success, path, metrics = self.capture_service.finalize_enrollment_capture(
+                pending_name,
+                identity_value=sid
+            )
 
             if not success:
                 def fail():
-                    screen1 = self.frames["Screen1"]
                     self.pending_name = None
                     self.pending_card_id = None
                     self.show_frame("Screen1")
-                    screen1.set_message("Camera error.", "red")
+                    self._set_main_status("Camera error.", "red", auto_clear=True)
                     self._end_processing()
 
                 self.root.after(0, fail)
@@ -433,11 +437,14 @@ class CheckInApp:
                 normalized_username,
                 email
             )
-            generate_behavioral_contract(
-                student_name=pending_name,
-                student_id=sid,
-                signed_name=pending_name
-            )
+            if has_signed_contract(pending_name, sid):
+                print("[Contract] Signed contract already exists for:", pending_name, sid)
+            else:
+                generate_behavioral_contract(
+                    student_name=pending_name,
+                    student_id=sid,
+                    signed_name=pending_name
+                )
 
             checkin_file = get_today_checkin_file()
             create_checkin_file_if_needed(checkin_file)
@@ -450,11 +457,9 @@ class CheckInApp:
             )
 
             def finish():
-                screen1 = self.frames["Screen1"]
-
                 if metrics:
                     print("[Capture] Enrollment best score:", round(metrics.total_score, 3))
-                print("Saved:", path)
+                print("[Capture] Final photo path:", path)
 
                 self.pending_name = None
                 self.pending_card_id = None
@@ -464,7 +469,7 @@ class CheckInApp:
                 self.swipe_var.set("")
 
                 self.show_frame("Screen1")
-                screen1.set_message(f"{pending_name} added and checked in.", "green")
+                self._set_main_status(f"{pending_name} added and checked in.", "green", auto_clear=True)
                 self._end_processing()
 
             self.root.after(0, finish)
@@ -473,9 +478,8 @@ class CheckInApp:
             self.root.after(0, self._handle_background_failure)
 
     def _handle_background_failure(self):
-        screen1 = self.frames["Screen1"]
         self.pending_name = None
         self.pending_card_id = None
         self.show_frame("Screen1")
-        screen1.set_message("Unexpected error.", "red")
+        self._set_main_status("Unexpected error.", "red", auto_clear=True)
         self._end_processing()

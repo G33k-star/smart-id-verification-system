@@ -420,18 +420,35 @@ class CaptureService:
 
         return EventCapture(self, time.monotonic())
 
-    def capture_known_user(self, person_name, event_capture=None):
+    def capture_known_user(self, person_name, identity_value=None, event_capture=None):
+        existing_photo_path = self.camera_manager.find_saved_photo_for_today(
+            person_name,
+            identity_value
+        )
+        if existing_photo_path:
+            if event_capture:
+                event_capture.cancel()
+            print("[Capture] Reusing today's existing photo:", existing_photo_path)
+            return True, existing_photo_path, None
+
         capture = event_capture or self.trigger_capture_event()
         if capture is None:
             return False, None, None
 
         result = self._resolve_event_capture(capture)
         if result.frame is not None:
-            success, path = self.camera_manager.save_frame(person_name, result.frame)
+            success, path = self.camera_manager.save_frame(
+                person_name,
+                result.frame,
+                identity_value=identity_value
+            )
             if success:
                 return True, path, result.metrics
 
-        success, path = self.camera_manager.capture_image(person_name)
+        success, path = self.camera_manager.capture_image(
+            person_name,
+            identity_value=identity_value
+        )
         return success, path, result.metrics
 
     def start_enrollment_session(self, event_capture=None):
@@ -444,18 +461,38 @@ class CaptureService:
             self.enrollment_capture = capture
             return True
 
-    def finalize_enrollment_capture(self, person_name):
+    def finalize_enrollment_capture(self, person_name, identity_value=None):
+        existing_photo_path = self.camera_manager.find_saved_photo_for_today(
+            person_name,
+            identity_value
+        )
+        if existing_photo_path:
+            with self.enrollment_lock:
+                capture = self.enrollment_capture
+                self.enrollment_capture = None
+            if capture:
+                capture.cancel()
+            print("[Capture] Reusing today's existing photo:", existing_photo_path)
+            return True, existing_photo_path, None
+
         with self.enrollment_lock:
             capture = self.enrollment_capture
             self.enrollment_capture = None
 
         result = self._resolve_event_capture(capture)
         if result.frame is not None:
-            success, path = self.camera_manager.save_frame(person_name, result.frame)
+            success, path = self.camera_manager.save_frame(
+                person_name,
+                result.frame,
+                identity_value=identity_value
+            )
             if success:
                 return True, path, result.metrics
 
-        success, path = self.camera_manager.capture_image(person_name)
+        success, path = self.camera_manager.capture_image(
+            person_name,
+            identity_value=identity_value
+        )
         return success, path, result.metrics
 
     def cancel_enrollment_session(self):

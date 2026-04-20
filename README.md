@@ -67,7 +67,7 @@ Runtime data created on startup and during use:
 ```text
 data/students/database.csv
 data/checkins/checkin_YYYY-MM-DD.csv
-data/photos/checkins/YYYY-MM-DD/<name>_<time>.jpg
+data/photos/checkins/YYYY-MM-DD/<name>-<student_id>_<time>.jpg
 data/contracts/signed/<name>-<student_id>-signed_contract.pdf
 ```
 
@@ -82,7 +82,7 @@ Known student:
 3. Treat the swipe as a capture event.
 4. Score buffered frames from a short window around the swipe, with stronger preference for frames slightly after the swipe.
 5. Prefer a single clear face that is large enough, near center, and not edge-clipped, then choose the best candidate from that event window.
-6. Save only the best final image to `data/photos/checkins/...`.
+6. Save only the best final image to `data/photos/checkins/...`, and skip duplicate photo saves if the same student already has one for that day.
 7. Append the check-in row to the daily CSV.
 
 New student:
@@ -93,7 +93,7 @@ New student:
 4. If registration is canceled, discard the pending capture.
 5. If registration completes, save the best event-window candidate using the normal photo naming convention.
 6. Create or append the student database record.
-7. Generate the signed behavioral-contract PDF.
+7. Generate the signed behavioral-contract PDF only if one does not already exist for that student.
 8. Append the daily check-in row.
 
 ## Capture Scoring
@@ -147,4 +147,5 @@ If the event window does not produce a candidate, the app falls back to the orig
 - The app keeps the cursor visible.
 - Startup uses a plain Tk root window on X11/Linux and avoids `withdraw()` / `deiconify()` / `overrideredirect()` remap tricks.
 - The app does not hard-lock keyboard shortcuts.
+- Main-screen success/error messages auto-reset after a short timeout.
 - The camera is released on quit.

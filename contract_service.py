@@ -101,18 +101,30 @@ def _build_overlay(student_name, student_id, signed_name, contract_date):
     return bytes(pdf.output())
 
 
+def get_signed_contract_path(student_name, student_id):
+    output_dir = Path(BEHAVIORAL_CONTRACT_SIGNED_FOLDER)
+    safe_name = sanitize_filename_part(student_name)
+    safe_student_id = sanitize_filename_part(student_id)
+    return output_dir / f"{safe_name}-{safe_student_id}-signed_contract.pdf"
+
+
+def has_signed_contract(student_name, student_id):
+    return get_signed_contract_path(student_name, student_id).exists()
+
+
 def generate_behavioral_contract(student_name, student_id, signed_name=None):
     template_path = Path(BEHAVIORAL_CONTRACT_TEMPLATE)
     output_dir = Path(BEHAVIORAL_CONTRACT_SIGNED_FOLDER)
     signed_name = signed_name or student_name
     contract_date = datetime.now().strftime("%m/%d/%Y")
-
-    safe_name = sanitize_filename_part(student_name)
-    safe_student_id = sanitize_filename_part(student_id)
-    output_path = output_dir / f"{safe_name}-{safe_student_id}-signed_contract.pdf"
+    output_path = get_signed_contract_path(student_name, student_id)
 
     try:
         output_dir.mkdir(parents=True, exist_ok=True)
+
+        if output_path.exists():
+            print("[Contract] Reusing existing signed contract:", output_path)
+            return output_path
 
         if not template_path.exists():
             raise FileNotFoundError("Contract template not found: {0}".format(template_path))

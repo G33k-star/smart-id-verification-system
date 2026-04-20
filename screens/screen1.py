@@ -1,11 +1,14 @@
 import tkinter as tk
 
+from config import STATUS_MESSAGE_TIMEOUT_MS
+
 
 class Screen1(tk.Frame):
     def __init__(self, parent, controller):
         super().__init__(parent, bg="white")
 
         self.controller = controller
+        self.message_timeout_job = None
 
         # Title
         tk.Label(
@@ -69,8 +72,26 @@ class Screen1(tk.Frame):
         else:
             self.set_message("Camera unavailable", "red")
 
-    def set_message(self, text, color="black"):
+    def set_message(self, text, color="black", auto_clear=False):
+        self._cancel_message_timeout()
         self.message_label.config(text=text, fg=color)
+        if auto_clear:
+            self.message_timeout_job = self.after(
+                STATUS_MESSAGE_TIMEOUT_MS,
+                self.reset_status_message
+            )
+
+    def reset_status_message(self):
+        self._cancel_message_timeout()
+        if self.controller.is_camera_running():
+            self.message_label.config(text="Ready - Swipe ID", fg="black")
+        else:
+            self.message_label.config(text="Camera unavailable", fg="red")
+
+    def _cancel_message_timeout(self):
+        if self.message_timeout_job is not None:
+            self.after_cancel(self.message_timeout_job)
+            self.message_timeout_job = None
 
     def get_primary_focus_widget(self):
         return self.swipe_entry
