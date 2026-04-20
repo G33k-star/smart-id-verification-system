@@ -107,6 +107,59 @@ def has_signed_contract(student_name, student_id):
     return get_signed_contract_path(student_name, student_id).exists()
 
 
+def _files_have_same_bytes(left_path, right_path):
+    try:
+        return left_path.read_bytes() == right_path.read_bytes()
+    except Exception:
+        return False
+
+
+def rename_signed_contract(student_id, old_name, new_name):
+    old_path = get_signed_contract_path(old_name, student_id)
+    new_path = get_signed_contract_path(new_name, student_id)
+
+    if old_path == new_path:
+        return {
+            "current_path": new_path if new_path.exists() else None,
+            "renamed": False,
+            "deduplicated": False,
+            "collision": False,
+        }
+
+    if not old_path.exists():
+        return {
+            "current_path": new_path if new_path.exists() else None,
+            "renamed": False,
+            "deduplicated": False,
+            "collision": False,
+        }
+
+    if new_path.exists():
+        if _files_have_same_bytes(old_path, new_path):
+            old_path.unlink()
+            return {
+                "current_path": new_path,
+                "renamed": False,
+                "deduplicated": True,
+                "collision": False,
+            }
+
+        return {
+            "current_path": new_path,
+            "renamed": False,
+            "deduplicated": False,
+            "collision": True,
+        }
+
+    old_path.replace(new_path)
+    return {
+        "current_path": new_path,
+        "renamed": True,
+        "deduplicated": False,
+        "collision": False,
+    }
+
+
 def write_contract_template():
     template_path = Path(BEHAVIORAL_CONTRACT_TEMPLATE)
     template_path.parent.mkdir(parents=True, exist_ok=True)

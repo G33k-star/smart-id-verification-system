@@ -14,7 +14,12 @@ from config import (
     WINDOW_HEIGHT,
     WINDOW_WIDTH,
 )
-from contract_service import generate_behavioral_contract, has_signed_contract
+from contract_service import (
+    generate_behavioral_contract,
+    get_signed_contract_path,
+    has_signed_contract,
+    rename_signed_contract,
+)
 from data_service import (
     add_student_to_database,
     already_checked_in_today,
@@ -22,7 +27,7 @@ from data_service import (
     find_student_in_database,
     get_registration_conflict,
     save_checkin,
-    update_student_card_id,
+    update_student_for_first_card_link,
 )
 from file_setup import (
     create_checkin_file_if_needed,
@@ -490,13 +495,35 @@ class CheckInApp:
             self._handle_background_failure()
             return
 
-        updated_student = update_student_card_id(candidate["Student ID"], self.pending_card_id)
-        if not updated_student:
+        canonical_card_name = form.get("swipe_name") or candidate["Name"]
+        old_student, updated_student = update_student_for_first_card_link(
+            candidate["Student ID"],
+            self.pending_card_id,
+            canonical_card_name
+        )
+        if not old_student or not updated_student:
             self._end_processing()
             self._handle_background_failure()
             return
 
-        if not has_signed_contract(updated_student["Name"], updated_student["Student ID"]):
+        photo_rename_result = self.camera_manager.rename_saved_photos(
+            old_student["Name"],
+            updated_student["Name"],
+            identity_value=updated_student["Student ID"]
+        )
+        contract_rename_result = rename_signed_contract(
+            updated_student["Student ID"],
+            old_student["Name"],
+            updated_student["Name"]
+        )
+
+        if photo_rename_result["collisions"]:
+            print("[Files] Photo rename collisions:", photo_rename_result["collisions"])
+
+        if contract_rename_result["collision"]:
+            print("[Files] Contract rename collision for student:", updated_student["Student ID"])
+
+        if not get_signed_contract_path(updated_student["Name"], updated_student["Student ID"]).exists():
             generate_behavioral_contract(
                 student_name=updated_student["Name"],
                 student_id=updated_student["Student ID"],

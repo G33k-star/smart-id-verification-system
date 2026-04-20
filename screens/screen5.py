@@ -74,7 +74,7 @@ class Screen5(tk.Frame):
             return
 
         self.message_label.config(
-            text="We found an existing pre-registered record that matches the entered Student ID and myMDC username. Link this card to that record?",
+            text="We found an existing pre-registered record that matches the entered Student ID and myMDC username. Link this card to that record and use the confirmed card name as the stored canonical name?",
             fg="black"
         )
 
@@ -87,6 +87,7 @@ class Screen5(tk.Frame):
         swipe_name = submitted.get("swipe_name")
         if swipe_name:
             details.append("Card name read as: {0}".format(swipe_name))
+            details.append("Stored name after link: {0}".format(swipe_name))
 
         self.details_label.config(text="\n".join(details))
 

@@ -94,12 +94,13 @@ Swipe-based new student:
 1. Swipe ID.
 2. Treat the swipe as the enrollment capture event before showing the registration form.
 3. If the user later enters a Student ID + myMDC username that matches a pre-registered record with no card linked yet, the app shows a confirmation step before linking the swiped card.
-4. Keep the best event-window candidate in memory while the form is open.
-5. If registration is canceled, discard the pending capture.
-6. If registration completes, save the best event-window candidate using the normal photo naming convention.
-7. Create or append the student database record.
-8. Generate the signed behavioral-contract PDF only if one does not already exist for that student.
-9. Append the daily check-in row.
+4. When that first-card link is confirmed, the cleaned Track 1 card name becomes the canonical stored name for the student, and existing canonical student files are renamed where safe.
+5. Keep the best event-window candidate in memory while the form is open.
+6. If registration is canceled, discard the pending capture.
+7. If registration completes, save the best event-window candidate using the normal photo naming convention.
+8. Create or append the student database record.
+9. Generate the signed behavioral-contract PDF only if one does not already exist for that student.
+10. Append the daily check-in row.
 
 No-card registration / check-in:
 
@@ -169,6 +170,7 @@ If the event window does not produce a candidate, the app falls back to the orig
 - Startup uses a plain Tk root window on X11/Linux and avoids `withdraw()` / `deiconify()` / `overrideredirect()` remap tricks.
 - The app does not hard-lock keyboard shortcuts.
 - Cardholder names are parsed from Track 1 only and normalized to canonical `First Middle Last` form for saved outputs.
+- On confirmed first-card link, the cleaned Track 1 card name replaces the pre-registered name as the canonical stored student name.
 - Main-screen success/error messages auto-reset after a short timeout.
 - The main screen stays silent when the camera is healthy and only shows camera messages when the camera is unavailable or capture fails.
 - The camera is released on quit.

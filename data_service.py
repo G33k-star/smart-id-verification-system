@@ -163,6 +163,39 @@ def add_student_to_database(
     _write_database_rows(rows)
 
 
+def update_student_for_first_card_link(student_id, card_id, canonical_name):
+    normalized_student_id = _normalize_student_id(student_id)
+    normalized_card_id = _normalize_card_id(card_id)
+    normalized_name = _normalize_text(canonical_name)
+    if not normalized_student_id or not normalized_card_id or not normalized_name:
+        return None, None
+
+    rows = _read_database_rows()
+    old_row = None
+    updated_row = None
+
+    for row in rows:
+        if (
+            _normalize_card_id(row.get("Card ID", "")) == normalized_card_id and
+            _normalize_student_id(row.get("Student ID", "")) != normalized_student_id
+        ):
+            return None, None
+
+    for row in rows:
+        if _normalize_student_id(row.get("Student ID", "")) == normalized_student_id:
+            old_row = dict(row)
+            row["Card ID"] = normalized_card_id
+            row["Name"] = normalized_name
+            updated_row = dict(row)
+            break
+
+    if updated_row is None:
+        return None, None
+
+    _write_database_rows(rows)
+    return old_row, updated_row
+
+
 def update_student_card_id(student_id, card_id):
     normalized_student_id = _normalize_student_id(student_id)
     normalized_card_id = _normalize_card_id(card_id)

@@ -208,6 +208,13 @@ class CameraManager:
         cleaned = cleaned.strip("._-")
         return cleaned or "unknown"
 
+    def _files_have_same_bytes(self, left_path, right_path):
+        try:
+            with open(left_path, "rb") as left_file, open(right_path, "rb") as right_file:
+                return left_file.read() == right_file.read()
+        except Exception:
+            return False
+
     def _build_photo_stem(self, person_name, identity_value=None):
         safe_name = self._sanitize_photo_part(person_name)
         if identity_value:
@@ -230,6 +237,65 @@ class CameraManager:
                 return os.path.join(today_folder, filename)
 
         return None
+
+    def rename_saved_photos(self, old_name, new_name, identity_value=None, output_folder=None):
+        output_folder = output_folder or DATA_PHOTOS_CHECKINS_FOLDER
+        if not os.path.isdir(output_folder):
+            return {
+                "renamed": [],
+                "deduplicated": [],
+                "collisions": [],
+            }
+
+        old_prefix = self._build_photo_stem(old_name, identity_value) + "_"
+        new_prefix = self._build_photo_stem(new_name, identity_value) + "_"
+        if old_prefix == new_prefix:
+            return {
+                "renamed": [],
+                "deduplicated": [],
+                "collisions": [],
+            }
+
+        renamed = []
+        deduplicated = []
+        collisions = []
+
+        for entry in sorted(os.scandir(output_folder), key=lambda item: item.name):
+            if not entry.is_dir():
+                continue
+
+            for filename in sorted(os.listdir(entry.path)):
+                if not filename.lower().endswith(".jpg"):
+                    continue
+                if not filename.startswith(old_prefix):
+                    continue
+
+                suffix = filename[len(old_prefix):]
+                old_path = os.path.join(entry.path, filename)
+                new_path = os.path.join(entry.path, new_prefix + suffix)
+
+                if old_path == new_path:
+                    continue
+
+                if os.path.exists(new_path):
+                    if self._files_have_same_bytes(old_path, new_path):
+                        os.remove(old_path)
+                        deduplicated.append(new_path)
+                    else:
+                        collisions.append({
+                            "source": old_path,
+                            "target": new_path,
+                        })
+                    continue
+
+                os.replace(old_path, new_path)
+                renamed.append(new_path)
+
+        return {
+            "renamed": renamed,
+            "deduplicated": deduplicated,
+            "collisions": collisions,
+        }
 
     def save_frame(self, person_name, frame, output_folder=None, identity_value=None):
         if frame is None:
