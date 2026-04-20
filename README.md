@@ -16,7 +16,7 @@ Tkinter-based ID check-in app for Raspberry Pi. The system reads swipe data from
 - Event-driven photo capture with rolling frame buffer
 - Face-prioritized frame selection using lightweight OpenCV scoring
 - New-student registration flow with event-triggered enrollment capture
-- Behavioral-contract PDF generation from the bundled contract asset
+- Behavioral-contract PDF generation from the read-only master contract template
 - Focus restoration so the swipe field is ready after startup, screen changes, and popup close
 
 ## Requirements
@@ -76,6 +76,7 @@ data/contracts/signed/<name>-<student_id>-signed_contract.pdf
 ```
 
 The `data/` tree is runtime-only and is ignored by git. On first app start, the app creates the required directories and an empty `data/students/database.csv` if it does not exist yet.
+The master behavioral-contract template lives at `assets/contracts/Robotics Lab Behavioral Contract 2026.pdf` and is treated as read-only input. The app only writes per-student signed copies under `data/contracts/signed/`.
 
 ## Runtime Flow
 
@@ -171,6 +172,7 @@ If the event window does not produce a candidate, the app falls back to the orig
 - The app does not hard-lock keyboard shortcuts.
 - Cardholder names are parsed from Track 1 only and normalized to canonical `First Middle Last` form for saved outputs.
 - On confirmed first-card link, the cleaned Track 1 card name replaces the pre-registered name as the canonical stored student name.
+- The blank master contract template is never rewritten by the app.
 - Main-screen success/error messages auto-reset after a short timeout.
 - The main screen stays silent when the camera is healthy and only shows camera messages when the camera is unavailable or capture fails.
 - The camera is released on quit.
