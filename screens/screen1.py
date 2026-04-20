@@ -62,6 +62,7 @@ class Screen1(tk.Frame):
         ).pack(side="bottom", pady=10)
 
     def reset_screen(self):
+        print("[Startup] Screen1.reset_screen")
         self.controller.swipe_var.set("")
         if self.controller.ensure_camera_running():
             self.set_message("Ready - Swipe ID")

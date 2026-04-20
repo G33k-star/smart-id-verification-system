@@ -4,7 +4,7 @@ Tkinter-based ID check-in app for Raspberry Pi. The system reads swipe data from
 
 ## Features
 
-- Full-screen kiosk-style Tkinter UI
+- Stable Tkinter root window sized to the display
 - Swipe-based student lookup
 - Canonical `assets/` and `data/` storage layout
 - Daily check-in CSV logs under `data/checkins/`
@@ -144,5 +144,6 @@ If the event window does not produce a candidate, the app falls back to the orig
 ## Notes
 
 - The app keeps the cursor visible.
+- Startup uses a plain Tk root window on X11/Linux and avoids `withdraw()` / `deiconify()` / `overrideredirect()` remap tricks.
 - The app does not hard-lock keyboard shortcuts.
 - The camera is released on quit.

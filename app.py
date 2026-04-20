@@ -41,26 +41,46 @@ from validators import (
 )
 
 
-def apply_kiosk_window(window, fullscreen=True):
-    window.update_idletasks()
-    window.withdraw()
-    window.overrideredirect(True)
-    window.attributes("-topmost", True)
+def describe_root_window(window):
+    try:
+        state = window.state()
+    except tk.TclError:
+        state = "unavailable"
 
-    if fullscreen:
-        width = window.winfo_screenwidth()
-        height = window.winfo_screenheight()
-        window.geometry(f"{width}x{height}+0+0")
-        window.attributes("-fullscreen", True)
+    return "state={0} mapped={1} viewable={2} geometry={3}".format(
+        state,
+        window.winfo_ismapped(),
+        window.winfo_viewable(),
+        window.winfo_geometry()
+    )
 
-    window.deiconify()
-    window.lift()
+
+def configure_root_window(window):
+    width = window.winfo_screenwidth()
+    height = window.winfo_screenheight()
+    print("[Startup] Configuring stable root window: {0}x{1}".format(width, height))
+
+    window.overrideredirect(False)
+
+    try:
+        window.attributes("-topmost", False)
+    except tk.TclError as exc:
+        print("[Startup] Could not disable -topmost:", exc)
+
+    try:
+        window.attributes("-fullscreen", False)
+    except tk.TclError as exc:
+        print("[Startup] Could not disable -fullscreen:", exc)
+
+    window.geometry(f"{width}x{height}+0+0")
+    print("[Startup] Root configured:", describe_root_window(window))
 
 
 class CheckInApp:
     FOCUS_RETRY_MS = 150
 
     def __init__(self, root):
+        print("[Startup] CheckInApp init start")
         self.root = root
         self.root.title("ID Check-In System")
         self.root.geometry(f"{WINDOW_WIDTH}x{WINDOW_HEIGHT}")
@@ -68,9 +88,11 @@ class CheckInApp:
         self.active_screen_name = None
 
         initialize_storage()
+        print("[Startup] Storage initialized")
 
         self.camera_manager = CameraManager()
         self.capture_service = CaptureService(self.camera_manager)
+        print("[Startup] Camera services created")
 
         self.swipe_var = tk.StringVar()
         self.student_var = tk.StringVar()
@@ -86,17 +108,22 @@ class CheckInApp:
 
         self.container = tk.Frame(self.root, bg="white")
         self.container.pack(fill="both", expand=True)
+        print("[Startup] Root container created")
 
         self.frames = {}
         for frame_class in (Screen1, Screen2, Screen3, Screen4):
+            print("[Startup] Creating frame:", frame_class.__name__)
             frame = frame_class(self.container, self)
             self.frames[frame_class.__name__] = frame
             frame.place(relwidth=1, relheight=1)
+            print("[Startup] Frame ready:", frame_class.__name__)
 
         self.root.bind("<FocusIn>", self._handle_root_focus_in, add="+")
         self.show_frame("Screen1")
+        print("[Startup] CheckInApp init complete")
 
     def show_frame(self, name):
+        print("[Startup] show_frame ->", name)
         frame = self.frames[name]
         self.active_screen_name = name
         frame.tkraise()
@@ -120,8 +147,10 @@ class CheckInApp:
     def restore_active_focus(self):
         widget = self.get_active_primary_focus_widget()
         if not widget:
+            print("[Startup] No primary focus widget for", self.active_screen_name)
             return
 
+        print("[Startup] Scheduling focus restore for", self.active_screen_name)
         self.root.after_idle(lambda: self._focus_widget(widget))
         self.root.after(
             self.FOCUS_RETRY_MS,
@@ -140,12 +169,14 @@ class CheckInApp:
             self.restore_active_focus()
 
     def ensure_camera_running(self):
+        print("[Startup] ensure_camera_running called")
         return self.capture_service.start_camera()
 
     def is_camera_running(self):
         return self.capture_service.is_camera_running()
 
     def safe_quit_program(self):
+        print("[Startup] safe_quit_program called")
         self.capture_service.stop_camera()
         self.root.destroy()
 
