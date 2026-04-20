@@ -9,8 +9,9 @@ Tkinter-based ID check-in app for Raspberry Pi. The system reads swipe data from
 - Canonical `assets/` and `data/` storage layout
 - Daily check-in CSV logs under `data/checkins/`
 - App-level camera ownership so capture continues across screen changes
-- Best-frame capture sessions using lightweight OpenCV scoring
-- New-student registration flow with in-memory enrollment capture
+- Event-driven photo capture with rolling frame buffer
+- Face-prioritized frame selection using lightweight OpenCV scoring
+- New-student registration flow with event-triggered enrollment capture
 - Behavioral-contract PDF generation from the bundled template
 - Focus restoration so the swipe field is ready after startup, screen changes, and popup close
 
@@ -78,45 +79,64 @@ Known student:
 
 1. Swipe ID.
 2. Look up the card in `data/students/database.csv`.
-3. Run a short capture session for about 1.2 seconds.
-4. Sample frames every 0.2 seconds.
-5. Score each candidate using lightweight OpenCV heuristics.
+3. Treat the swipe as a capture event.
+4. Score buffered frames from about 0.5 seconds before the swipe through about 1.5 seconds after it.
+5. Prefer a single clear face, then choose the best candidate from that event window.
 6. Save only the best final image to `data/photos/checkins/...`.
 7. Append the check-in row to the daily CSV.
 
 New student:
 
 1. Swipe ID.
-2. Start an enrollment capture session before showing the registration form.
-3. Keep the best candidate in memory while the form is open.
-4. If registration is canceled, discard the session.
-5. If registration completes, save the best candidate using the normal photo naming convention.
+2. Treat the swipe as the enrollment capture event before showing the registration form.
+3. Keep the best event-window candidate in memory while the form is open.
+4. If registration is canceled, discard the pending capture.
+5. If registration completes, save the best event-window candidate using the normal photo naming convention.
 6. Create or append the student database record.
 7. Generate the signed behavioral-contract PDF.
 8. Append the daily check-in row.
 
 ## Capture Scoring
 
-The capture session uses only lightweight OpenCV operations:
+The capture pipeline uses only lightweight OpenCV operations:
 
+- continuous camera stream with sampled rolling buffer
 - downscaled grayscale scoring frames
-- Haar-cascade face detection when available
-- preference for one dominant face
+- Haar-cascade face detection on sampled frames only
+- preference for one clear face in the event window
 - centered face preference
-- size and edge-clipping checks
+- minimum face-size and edge-clipping checks
 - sharpness via Laplacian variance
-- brightness check
-- contrast fallback when face detection is weak or unavailable
+- brightness range scoring
+- general-image fallback using sharpness, brightness, and centered detail
 
-If the capture session does not find an acceptable best candidate, the app falls back to the original immediate single-frame save.
+## Capture Tuning
+
+Capture tuning lives in `config.py`:
+
+- `BUFFER_DURATION_SEC`
+- `PRE_EVENT_WINDOW_SEC`
+- `POST_EVENT_WINDOW_SEC`
+- `FRAME_SAMPLE_INTERVAL_MS`
+- `FACE_DETECT_SCALE`
+- `MIN_FACE_SIZE_RATIO`
+- `CENTER_TOLERANCE_RATIO`
+- `BLUR_THRESHOLD`
+- `BRIGHTNESS_MIN`
+- `BRIGHTNESS_MAX`
+- `MAX_BUFFER_FRAMES`
+- `DEBUG_SAVE_FRAMES`
+
+If the event window does not produce a candidate, the app falls back to the original immediate single-frame save.
 
 ## Main Files
 
 - `main.py` - Tkinter startup
 - `app.py` - main controller, screen navigation, focus restoration, check-in flow
 - `cam.py` - low-level camera access and image saving
-- `capture_session.py` - best-frame scoring and capture-session management
+- `capture_session.py` - rolling buffer, event-window selection, and best-frame scoring
 - `data_service.py` - database lookup and CSV writes
+- `config.py` - canonical paths and capture tuning constants
 - `file_setup.py` - canonical path setup and file creation helpers
 - `contract_service.py` - behavioral-contract PDF generation
 - `screens/` - Tkinter screens

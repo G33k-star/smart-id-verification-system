@@ -1,47 +1,44 @@
-import tkinter as tk
 import os
 import subprocess
 import sys
+import threading
+import tkinter as tk
 
 from cam import CameraManager
 from capture_session import CaptureService
 from config import (
-    WINDOW_WIDTH,
-    WINDOW_HEIGHT,
-    ADMIN_USERNAME,
     ADMIN_PASSWORD,
+    ADMIN_USERNAME,
     DATA_CHECKINS_FOLDER,
-    DATA_STUDENTS_FOLDER
-)
-
-from file_setup import (
-    initialize_storage,
-    get_terms_text,
-    get_today_checkin_file,
-    create_checkin_file_if_needed
-)
-
-from validators import (
-    parse_swipe,
-    valid_student_id,
-    valid_phone_number,
-    normalize_phone_number,
-    valid_mymdc_username,
-    build_mymdc_email
-)
-
-from data_service import (
-    find_student_in_database,
-    add_student_to_database,
-    already_checked_in_today,
-    save_checkin
+    DATA_STUDENTS_FOLDER,
+    WINDOW_HEIGHT,
+    WINDOW_WIDTH,
 )
 from contract_service import generate_behavioral_contract
-
+from data_service import (
+    add_student_to_database,
+    already_checked_in_today,
+    find_student_in_database,
+    save_checkin,
+)
+from file_setup import (
+    create_checkin_file_if_needed,
+    get_terms_text,
+    get_today_checkin_file,
+    initialize_storage,
+)
 from screens.screen1 import Screen1
 from screens.screen2 import Screen2
 from screens.screen3 import Screen3
 from screens.screen4 import Screen4
+from validators import (
+    build_mymdc_email,
+    normalize_phone_number,
+    parse_swipe,
+    valid_mymdc_username,
+    valid_phone_number,
+    valid_student_id,
+)
 
 
 def apply_kiosk_window(window, fullscreen=True):
@@ -75,35 +72,30 @@ class CheckInApp:
         self.camera_manager = CameraManager()
         self.capture_service = CaptureService(self.camera_manager)
 
-        # Variables
         self.swipe_var = tk.StringVar()
         self.student_var = tk.StringVar()
         self.phone_var = tk.StringVar()
         self.mymdc_username_var = tk.StringVar()
-
         self.admin_user_var = tk.StringVar()
         self.admin_pass_var = tk.StringVar()
 
         self.pending_name = None
         self.pending_card_id = None
+        self.processing = False
+        self.processing_lock = threading.Lock()
 
-        # Container
         self.container = tk.Frame(self.root, bg="white")
         self.container.pack(fill="both", expand=True)
 
-        # Screens
         self.frames = {}
-        for FrameClass in (Screen1, Screen2, Screen3, Screen4):
-            frame = FrameClass(self.container, self)
-            self.frames[FrameClass.__name__] = frame
+        for frame_class in (Screen1, Screen2, Screen3, Screen4):
+            frame = frame_class(self.container, self)
+            self.frames[frame_class.__name__] = frame
             frame.place(relwidth=1, relheight=1)
 
         self.root.bind("<FocusIn>", self._handle_root_focus_in, add="+")
         self.show_frame("Screen1")
 
-    # -------------------------
-    # Navigation
-    # -------------------------
     def show_frame(self, name):
         frame = self.frames[name]
         self.active_screen_name = name
@@ -147,9 +139,6 @@ class CheckInApp:
         if event.widget is self.root:
             self.restore_active_focus()
 
-    # -------------------------
-    # System Functions
-    # -------------------------
     def ensure_camera_running(self):
         return self.capture_service.start_camera()
 
@@ -174,17 +163,17 @@ class CheckInApp:
                 os.startfile(path)
             elif sys.platform == "darwin":
                 subprocess.Popen(["open", path])
-        except Exception as e:
-            print("[App] Failed to open path:", e)
+        except Exception as exc:
+            print("[App] Failed to open path:", exc)
 
     def open_terms_window(self):
         win = tk.Toplevel(self.root)
         win.title("Terms and Conditions")
         width = 600
         height = 400
-        x = (self.root.winfo_screenwidth() - width) // 2
-        y = (self.root.winfo_screenheight() - height) // 2
-        win.geometry(f"{width}x{height}+{x}+{y}")
+        x_pos = (self.root.winfo_screenwidth() - width) // 2
+        y_pos = (self.root.winfo_screenheight() - height) // 2
+        win.geometry(f"{width}x{height}+{x_pos}+{y_pos}")
         win.transient(self.root)
         win.attributes("-topmost", True)
         win.resizable(False, False)
@@ -200,22 +189,22 @@ class CheckInApp:
 
         text = tk.Text(win, wrap="word")
         text.pack(fill="both", expand=True, padx=10, pady=10)
-
         text.insert("1.0", get_terms_text())
         text.config(state="disabled")
 
         tk.Button(win, text="Close", command=close_terms_window).pack(pady=10)
 
-    # -------------------------
-    # Swipe Logic
-    # -------------------------
     def process_swipe_from_screen1(self):
         screen1 = self.frames["Screen1"]
 
-        swipe = self.swipe_var.get().strip()
+        if not self._begin_processing():
+            screen1.set_message("Already processing...", "orange")
+            return
 
+        swipe = self.swipe_var.get().strip()
         if not swipe:
             screen1.set_message("No swipe detected.", "red")
+            self._end_processing()
             return
 
         try:
@@ -223,6 +212,7 @@ class CheckInApp:
         except Exception:
             screen1.set_message("Invalid swipe format.", "red")
             self.swipe_var.set("")
+            self._end_processing()
             return
 
         checkin_file = get_today_checkin_file()
@@ -231,123 +221,85 @@ class CheckInApp:
         if already_checked_in_today(checkin_file, card_id):
             screen1.set_message(f"{name} already checked in.", "orange")
             self.swipe_var.set("")
+            self._end_processing()
             return
 
         if not self.is_camera_running():
             screen1.set_message("Camera unavailable.", "red")
+            self._end_processing()
             return
 
         screen1.set_message("Processing...", "blue")
         self.root.update_idletasks()
 
-        student = find_student_in_database(card_id)
-
-        # Existing user
-        if student:
-            success, path, metrics = self.capture_service.capture_known_user(student["Name"])
-
-            if not success:
-                screen1.set_message("Camera error.", "red")
-                return
-
-            save_checkin(
-                checkin_file,
-                student["Name"],
-                student["Card ID"],
-                student["Student ID"],
-                student["Phone Number"]
-            )
-
-            print("Saved:", path)
-            if metrics:
-                print("[Capture] Known-user best score:", round(metrics.total_score, 3))
-
-            screen1.set_message(f"{student['Name']} checked in.", "green")
-            self.swipe_var.set("")
+        event_capture = self.capture_service.trigger_capture_event()
+        if event_capture is None:
+            screen1.set_message("Camera unavailable.", "red")
+            self._end_processing()
             return
 
-        # New user
+        student = find_student_in_database(card_id)
+        if student:
+            self.swipe_var.set("")
+            threading.Thread(
+                target=self._process_known_user_capture,
+                args=(student, checkin_file, event_capture),
+                daemon=True
+            ).start()
+            return
+
         self.pending_name = name
         self.pending_card_id = card_id
-        if not self.capture_service.start_enrollment_session():
+
+        if not self.capture_service.start_enrollment_session(event_capture):
             self.pending_name = None
             self.pending_card_id = None
             screen1.set_message("Camera unavailable.", "red")
+            self._end_processing()
             return
+
+        self._end_processing()
         self.show_frame("Screen2")
 
-    # -------------------------
-    # Add User
-    # -------------------------
     def add_user_and_check_in(self):
-        screen1 = self.frames["Screen1"]
         screen2 = self.frames["Screen2"]
+
+        if not self._begin_processing():
+            screen2.set_message("Already processing...", "orange")
+            return
 
         sid = self.student_var.get().strip()
         phone = self.phone_var.get().strip()
         username = self.mymdc_username_var.get().strip()
 
-        # Show validation messages but DO NOT stop execution
+        validation_failed = False
         if not valid_student_id(sid):
             screen2.set_message("Invalid Student ID", "red")
+            validation_failed = True
 
         if not valid_phone_number(phone):
             screen2.set_message("Invalid phone number", "red")
+            validation_failed = True
 
         if not valid_mymdc_username(username):
             screen2.set_message("Invalid username", "red")
+            validation_failed = True
 
-        phone = normalize_phone_number(phone)
-        username, email = build_mymdc_email(username)
-        success, path, metrics = self.capture_service.finalize_enrollment_capture(self.pending_name)
+        if not validation_failed:
+            screen2.set_message("Finalizing...", "blue")
 
-        if not success:
-            self.pending_name = None
-            self.pending_card_id = None
-            self.show_frame("Screen1")
-            screen1.set_message("Camera error.", "red")
-            return
-
-        add_student_to_database(
-            self.pending_name,
-            self.pending_card_id,
-            sid,
-            phone,
-            username,
-            email
-        )
-        generate_behavioral_contract(
-            student_name=self.pending_name,
-            student_id=sid,
-            signed_name=self.pending_name
-        )
-        if metrics:
-            print("[Capture] Enrollment best score:", round(metrics.total_score, 3))
-
-        checkin_file = get_today_checkin_file()
-        create_checkin_file_if_needed(checkin_file)
-
-        save_checkin(
-            checkin_file,
-            self.pending_name,
-            self.pending_card_id,
-            sid,
-            phone
-        )
-
-        name = self.pending_name
-        self.pending_name = None
-        self.pending_card_id = None
-
-        self.student_var.set("")
-        self.phone_var.set("")
-        self.mymdc_username_var.set("")
-        self.swipe_var.set("")
-
-        self.show_frame("Screen1")
-        screen1.set_message(f"{name} added and checked in.", "green")
+        pending_name = self.pending_name
+        pending_card_id = self.pending_card_id
+        threading.Thread(
+            target=self._complete_new_user_flow,
+            args=(pending_name, pending_card_id, sid, phone, username),
+            daemon=True
+        ).start()
 
     def cancel_new_user_flow(self):
+        if self._is_processing():
+            return
+
         self.capture_service.cancel_enrollment_session()
         self.pending_name = None
         self.pending_card_id = None
@@ -356,9 +308,6 @@ class CheckInApp:
         self.mymdc_username_var.set("")
         self.show_frame("Screen1")
 
-    # -------------------------
-    # Admin Login
-    # -------------------------
     def check_admin_credentials(self):
         screen3 = self.frames["Screen3"]
 
@@ -373,3 +322,129 @@ class CheckInApp:
             self.admin_user_var.set("")
             self.admin_pass_var.set("")
             screen3.set_message("Incorrect credentials.")
+
+    def _begin_processing(self):
+        with self.processing_lock:
+            if self.processing:
+                return False
+
+            self.processing = True
+            return True
+
+    def _end_processing(self):
+        with self.processing_lock:
+            self.processing = False
+
+    def _is_processing(self):
+        with self.processing_lock:
+            return self.processing
+
+    def _process_known_user_capture(self, student, checkin_file, event_capture):
+        try:
+            success, path, metrics = self.capture_service.capture_known_user(
+                student["Name"],
+                event_capture=event_capture
+            )
+
+            if success:
+                save_checkin(
+                    checkin_file,
+                    student["Name"],
+                    student["Card ID"],
+                    student["Student ID"],
+                    student["Phone Number"]
+                )
+
+            def finish():
+                screen1 = self.frames["Screen1"]
+
+                if not success:
+                    screen1.set_message("Camera error.", "red")
+                    self._end_processing()
+                    return
+
+                print("Saved:", path)
+                if metrics:
+                    print("[Capture] Known-user best score:", round(metrics.total_score, 3))
+
+                screen1.set_message(f"{student['Name']} checked in.", "green")
+                self.swipe_var.set("")
+                self._end_processing()
+
+            self.root.after(0, finish)
+        except Exception as exc:
+            print("[App] Known-user processing failed:", exc)
+            self.root.after(0, self._handle_background_failure)
+
+    def _complete_new_user_flow(self, pending_name, pending_card_id, sid, phone, username):
+        try:
+            normalized_phone = normalize_phone_number(phone)
+            normalized_username, email = build_mymdc_email(username)
+            success, path, metrics = self.capture_service.finalize_enrollment_capture(pending_name)
+
+            if not success:
+                def fail():
+                    screen1 = self.frames["Screen1"]
+                    self.pending_name = None
+                    self.pending_card_id = None
+                    self.show_frame("Screen1")
+                    screen1.set_message("Camera error.", "red")
+                    self._end_processing()
+
+                self.root.after(0, fail)
+                return
+
+            add_student_to_database(
+                pending_name,
+                pending_card_id,
+                sid,
+                normalized_phone,
+                normalized_username,
+                email
+            )
+            generate_behavioral_contract(
+                student_name=pending_name,
+                student_id=sid,
+                signed_name=pending_name
+            )
+
+            checkin_file = get_today_checkin_file()
+            create_checkin_file_if_needed(checkin_file)
+            save_checkin(
+                checkin_file,
+                pending_name,
+                pending_card_id,
+                sid,
+                normalized_phone
+            )
+
+            def finish():
+                screen1 = self.frames["Screen1"]
+
+                if metrics:
+                    print("[Capture] Enrollment best score:", round(metrics.total_score, 3))
+                print("Saved:", path)
+
+                self.pending_name = None
+                self.pending_card_id = None
+                self.student_var.set("")
+                self.phone_var.set("")
+                self.mymdc_username_var.set("")
+                self.swipe_var.set("")
+
+                self.show_frame("Screen1")
+                screen1.set_message(f"{pending_name} added and checked in.", "green")
+                self._end_processing()
+
+            self.root.after(0, finish)
+        except Exception as exc:
+            print("[App] Enrollment processing failed:", exc)
+            self.root.after(0, self._handle_background_failure)
+
+    def _handle_background_failure(self):
+        screen1 = self.frames["Screen1"]
+        self.pending_name = None
+        self.pending_card_id = None
+        self.show_frame("Screen1")
+        screen1.set_message("Unexpected error.", "red")
+        self._end_processing()
