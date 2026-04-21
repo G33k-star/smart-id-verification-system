@@ -7,6 +7,7 @@ KEYMAP_BACKUP="$STATE_DIR/xmodmap.pre-kiosk"
 LOG_FILE="${HOME:-$SCRIPT_DIR}/smart-id-kiosk.log"
 KEYS_LOCKED=0
 RETRY_PID=""
+KEY_LOCK_RETRY_DELAYS=""
 
 config_flag() {
     python3 - "$SCRIPT_DIR" "$1" <<'PY'
@@ -22,6 +23,36 @@ module = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(module)
 
 print("1" if bool(getattr(module, setting_name, False)) else "0")
+PY
+}
+
+config_key_lock_retry_delays() {
+    python3 - "$SCRIPT_DIR" <<'PY'
+import importlib.util
+import pathlib
+import sys
+
+script_dir = pathlib.Path(sys.argv[1])
+
+spec = importlib.util.spec_from_file_location("app_config", script_dir / "config.py")
+module = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(module)
+
+raw_delays = getattr(module, "KIOSK_KEY_LOCK_RETRY_DELAYS_SEC", [])
+if not isinstance(raw_delays, (list, tuple)):
+    raw_delays = []
+
+normalized_delays = []
+for raw_delay in raw_delays:
+    try:
+        delay_value = int(raw_delay)
+    except (TypeError, ValueError):
+        continue
+
+    if delay_value > 0:
+        normalized_delays.append(delay_value)
+
+print(" ".join(str(delay) for delay in sorted(set(normalized_delays))))
 PY
 }
 
@@ -45,12 +76,25 @@ attempt_key_lock() {
 }
 
 start_key_lock_retries() {
-    (
-        sleep 2
-        attempt_key_lock "retry-2s" || true
+    if [ -z "$KEY_LOCK_RETRY_DELAYS" ]; then
+        log_message "key lock retry schedule: none"
+        return 0
+    fi
 
-        sleep 3
-        attempt_key_lock "retry-5s" || true
+    log_message "key lock retry schedule: ${KEY_LOCK_RETRY_DELAYS}"
+
+    (
+        previous_delay=0
+
+        for delay in $KEY_LOCK_RETRY_DELAYS; do
+            sleep_for=$((delay - previous_delay))
+            if [ "$sleep_for" -gt 0 ]; then
+                sleep "$sleep_for"
+            fi
+
+            attempt_key_lock "retry-${delay}s" || true
+            previous_delay=$delay
+        done
     ) &
     RETRY_PID=$!
 }
@@ -82,6 +126,7 @@ if [ -n "${DISPLAY:-}" ]; then
     fi
 
     if [ "$(config_flag KIOSK_LOCK_KEYS)" = "1" ]; then
+        KEY_LOCK_RETRY_DELAYS=$(config_key_lock_retry_delays)
         attempt_key_lock "initial" || true
         start_key_lock_retries
     fi
